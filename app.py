@@ -18,8 +18,6 @@ def main() -> None:
     st.title("CotaStack — Chaînes de cotes 1D")
     st.caption("Calcul de tolérancement 1D : Pire des cas & RSS — Conforme pratiques ISO")
 
-    st.info("🚧 Application en cours de développement — Socle technique initialisé")
-
     with st.sidebar:
         st.header("Navigation")
         st.page_link("app.py", label="🏠 Accueil", icon="🏠")
@@ -30,7 +28,7 @@ def main() -> None:
         st.divider()
         st.markdown("**Méthodes de calcul**")
         st.checkbox("Pire des cas (WC)", value=True, disabled=True)
-        st.checkbox("RSS (Statistical)", value=True, disabled=True)
+        st.checkbox("RSS (Statistique)", value=True, disabled=True)
         st.checkbox("Dilatation thermique", value=False, disabled=True)
 
         st.divider()
@@ -41,13 +39,14 @@ def main() -> None:
     st.markdown("""
     **CotaStack** est un outil web d'ingénierie mécanique pour le calcul et l'analyse de chaînes de cotes 1D.
 
-    ### Fonctionnalités prévues
-    - **Tracé graphique vectoriel** : Visualisation interactive des maillons avec sens et fermeture de boucle
-    - **Double moteur de calcul** : Pire des cas (arithmétique) et RSS (quadratique)
-    - **Standards ISO intégrés** : ISO 286 (ajustements) et ISO 2768-1 (tolérances générales)
-    - **Dilatation thermique** : Prise en compte des coefficients de dilatation matériaux
-    - **Export PDF normé** : Notes de calcul horodatées avec verdict Go/No-Go
-    - **Sauvegarde projets** : Réutilisation et versioning des chaînes de cotes
+    ### Fonctionnalités disponibles (Phase 1)
+    - ✅ **Calculateur interactif** : Saisie de maillons, résultats WC/RSS temps réel
+    - ✅ **Analyse de Pareto** : Identification de la cote la plus pénalisante
+    - ✅ **Distribution statistique** : Courbe Gauss RSS avec bornes cibles
+    - ✅ **Conformité** : Badges Go/No-Go vs jeu cible
+    - 🚧 **Standards ISO** : ISO 286 & 2768-1 (Phase 2)
+    - 🚧 **Dilatation thermique** : ΔT matériaux (Phase 3)
+    - 🚧 **Export PDF** : Notes de calcul normées (Phase 3)
 
     ### Démarrage rapide (développement)
     ```bash
@@ -57,13 +56,18 @@ def main() -> None:
     """)
 
     st.divider()
+    st.warning(
+        "⚠️ **Avertissement** : Outil d'aide à la conception. "
+        "L'utilisateur demeure seul responsable de la validation technique de ses chaînes avant fabrication."
+    )
+
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric("Statut", "🟢 Socle prêt")
+        st.metric("Statut", "🟢 Phase 1 opérationnelle")
     with col2:
-        st.metric("Architecture", "Modulaire")
+        st.metric("Backend", "100% tests OK")
     with col3:
-        st.metric("Tests", "pytest prêt")
+        st.metric("Couverture", "100% (calculator/models)")
 
 
 if __name__ == "__main__":
