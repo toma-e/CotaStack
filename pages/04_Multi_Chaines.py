@@ -22,6 +22,24 @@ st.set_page_config(
     page_title="Multi-Chaînes Système — CotaStack",
     page_icon="🏢",
     layout="wide",
+    initial_sidebar_state="collapsed",
+)
+
+# Masquage complet de la barre latérale et de son bouton de repli
+st.markdown(
+    """
+    <style>
+    [data-testid="stSidebar"], 
+    [data-testid="stSidebarCollapsedControl"], 
+    [data-testid="collapsedControl"],
+    section[data-testid="stSidebar"] {
+        display: none !important;
+        visibility: hidden !important;
+        width: 0px !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
 )
 
 
@@ -133,29 +151,11 @@ def main() -> None:
     project: MultiChainProject = st.session_state.multi_project
     materials = get_available_materials()
 
-    with st.sidebar:
-        st.header("🏢 Multi-Chaînes Système")
-        st.caption("Mode test & qualification prioritaire (Jalon 3.1)")
-        st.markdown(f"**Projet** : `{project.name}`")
-        col_sb1, col_sb2 = st.columns(2)
-        with col_sb1:
-            st.metric("Pièces Maîtresses", len(project.parts))
-        with col_sb2:
-            st.metric("Chaînes Système", len(project.chains))
-
-        st.divider()
-        st.markdown("**Navigation de test**")
-        st.info("ℹ️ Vous êtes directement sur le module Multi-Chaînes pour vos tests prioritaires.")
-
-        unlock = st.toggle(
-            "Afficher tous les modules",
-            value=st.session_state.get("unlock_all_pages", False),
-            key="toggle_unlock_pages",
-            help="Permet d'afficher les autres modules (Calculateur 1D, Standards ISO, Rapports) sans recharger la page.",
-        )
-        if unlock != st.session_state.get("unlock_all_pages", False):
-            st.session_state.unlock_all_pages = unlock
-            st.rerun()
+    col_h1, col_h2 = st.columns([3, 1])
+    with col_h1:
+        st.caption(f"Système mécanique actif : **{project.name}** | {project.description}")
+    with col_h2:
+        st.markdown(f"📦 **{len(project.parts)}** pièces maîtresses | 🔗 **{len(project.chains)}** chaînes")
 
     tab_catalog, tab_chains, tab_dashboard = st.tabs([
         "📦 Répertoire & Pièces Partagées",
