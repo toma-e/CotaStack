@@ -133,6 +133,30 @@ def main() -> None:
     project: MultiChainProject = st.session_state.multi_project
     materials = get_available_materials()
 
+    with st.sidebar:
+        st.header("🏢 Multi-Chaînes Système")
+        st.caption("Mode test & qualification prioritaire (Jalon 3.1)")
+        st.markdown(f"**Projet** : `{project.name}`")
+        col_sb1, col_sb2 = st.columns(2)
+        with col_sb1:
+            st.metric("Pièces Maîtresses", len(project.parts))
+        with col_sb2:
+            st.metric("Chaînes Système", len(project.chains))
+
+        st.divider()
+        st.markdown("**Navigation de test**")
+        st.info("ℹ️ Vous êtes directement sur le module Multi-Chaînes pour vos tests prioritaires.")
+
+        unlock = st.toggle(
+            "Afficher tous les modules",
+            value=st.session_state.get("unlock_all_pages", False),
+            key="toggle_unlock_pages",
+            help="Permet d'afficher les autres modules (Calculateur 1D, Standards ISO, Rapports) sans recharger la page.",
+        )
+        if unlock != st.session_state.get("unlock_all_pages", False):
+            st.session_state.unlock_all_pages = unlock
+            st.rerun()
+
     tab_catalog, tab_chains, tab_dashboard = st.tabs([
         "📦 Répertoire & Pièces Partagées",
         "🔗 Chaînes d'Assemblage du Système",

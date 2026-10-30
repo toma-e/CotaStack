@@ -1,76 +1,45 @@
-"""CotaStack - 1D Tolerance Chain Calculator.
+"""CotaStack - Point d'entrée principal.
 
-Streamlit web application for mechanical tolerance stack-up analysis.
-Supports Worst-Case, RSS, Thermal Expansion and Monte Carlo simulation.
+Arrivée directe sur le module Répertoire Multi-Chaînes (Jalon 3.1).
+Toutes les autres pages (Calculateur 1D, Standards ISO, Rapports) sont préservées intactes.
 """
 
 import streamlit as st
 
-st.set_page_config(
-    page_title="CotaStack — Chaînes de cotes 1D",
-    page_icon="📐",
-    layout="wide",
-    initial_sidebar_state="expanded",
+# Définition des pages de l'application
+page_multi = st.Page(
+    "pages/04_Multi_Chaines.py",
+    title="Multi-Chaînes Système",
+    icon="🏢",
+    default=True,
+)
+page_calculateur = st.Page(
+    "pages/01_Calculateur.py",
+    title="Calculateur 1D",
+    icon="🧮",
+)
+page_iso = st.Page(
+    "pages/02_Standards_ISO.py",
+    title="Standards ISO",
+    icon="📋",
+)
+page_rapports = st.Page(
+    "pages/03_Rapports.py",
+    title="Rapports & Export",
+    icon="📄",
 )
 
+# Accès direct et exclusif à la page multi-chaînes pour les tests
+if "unlock_all_pages" not in st.session_state:
+    st.session_state.unlock_all_pages = False
 
-def main() -> None:
-    st.title("CotaStack — Chaînes de cotes 1D")
-    st.caption("Calcul de tolérancement 1D : Pire des cas, RSS, Thermique & Monte Carlo — Conforme pratiques ISO GPS")
+if st.session_state.unlock_all_pages:
+    pg = st.navigation({
+        "🎯 Priorité en cours": [page_multi],
+        "Outils complémentaires": [page_calculateur, page_iso, page_rapports],
+    })
+else:
+    # Navigation masquée : l'utilisateur arrive directement et uniquement sur Multi-Chaînes
+    pg = st.navigation([page_multi], position="hidden")
 
-    with st.sidebar:
-        st.header("Navigation")
-        st.page_link("app.py", label="🏠 Accueil", icon="🏠")
-        st.page_link("pages/01_Calculateur.py", label="🧮 Calculateur", icon="🧮")
-        st.page_link("pages/02_Standards_ISO.py", label="📋 Standards ISO", icon="📋")
-        st.page_link("pages/03_Rapports.py", label="📄 Rapports & Export", icon="📄")
-        st.page_link("pages/04_Multi_Chaines.py", label="🏢 Multi-Chaînes Système", icon="🏢")
-
-        st.divider()
-        st.markdown("**Modules de calcul actifs**")
-        st.checkbox("Pire des cas (WC)", value=True, disabled=True)
-        st.checkbox("RSS (Statistique 3σ)", value=True, disabled=True)
-        st.checkbox("Dilatation thermique (ΔT)", value=True, disabled=True)
-        st.checkbox("Simulation Monte Carlo (PPM)", value=True, disabled=True)
-        st.checkbox("Allocation inverse & Synthèse", value=True, disabled=True)
-        st.checkbox("Tolérancement géométrique ISO GPS Ⓜ", value=True, disabled=True)
-        st.checkbox("Répertoire unifié multi-chaînes", value=True, disabled=True)
-
-        st.divider()
-        st.markdown("[Documentation](https://github.com/cotastack)")
-        st.markdown("[Signaler un bug](https://github.com/toma-e/CotaStack/issues)")
-
-    st.subheader("Bienvenue dans CotaStack")
-    st.markdown(r"""
-    **CotaStack** est une solution web d'ingénierie mécanique pour le dimensionnement, l'analyse et la certification des chaînes de cotes 1D.
-
-    ### Fonctionnalités opérationnelles
-    - ✅ **Calculateur interactif** : Saisie vectorielle des maillons avec recalcul temps réel Pire des Cas (WC) & Statistique (RSS).
-    - ✅ **Répertoire unifié multi-chaînes (Jalon 3.1)** : Définition unique des composants maîtres dans un catalogue partagé et propagation instantanée des modifications de tolérances sur toutes les chaînes d'assemblage du système. Matrice d'impacts croisés des pièces pivots.
-    - ✅ **Tolérancement géométrique ISO GPS (MMR Ⓜ)** : Calcul des états MMS/LMS, calcul dynamique du **bonus dimensionnel Ⓜ** (ISO 2692 / ISO 1101 / ASME Y14.5), condition virtuelle d'assemblage $V_c$, simulateur d'interface alésage/arbre sans collision et injection 1D.
-    - ✅ **Allocation inverse & Synthèse (Optionnel)** : Détermination automatique des tolérances optimales par composant à partir d'un jeu cible global (stratégies proportionnelle, coût d'usinage, degré ISO).
-    - ✅ **Compensation thermique ($\Delta T$)** : Prise en compte des coefficients de dilatation $\alpha$ des matériaux (aciers, alu, inox, laiton, polymères POM/PEEK) et courbe continue $J(T)$ de $-40^\circ\text{C}$ à $+120^\circ\text{C}$.
-    - ✅ **Simulation stochastique Monte Carlo** : $100\,000$ tirages vectorisés avec lois normales, uniformes et triangulaires, calcul prédictif du taux de rebut en **PPM** et capabilités ($C_p, C_{pk}$).
-    - ✅ **Référentiels ISO 286 & ISO 2768-1** : Système d'ajustements (H7/g6, etc.) avec qualification automatique (jeu/serrage/incertain) et tolérances générales.
-    - ✅ **Assistant d'injection** : Remplissage instantané des cotes normées et géométriques dans le tableau de calcul.
-    - ✅ **Sauvegarde locale Privacy-First** : Sauvegarde et rechargement de projet au format `.cotastack` (JSON local).
-    - ✅ **Rapport PDF normé A4** : Génération vectorielle d'une note de calcul officielle avec cartouche, tableau complet, bilans chiffrés et bloc de visa qualité.
-    """)
-
-    st.divider()
-    st.warning(
-        "⚠️ **Avertissement** : Outil d'aide à la conception. "
-        "L'utilisateur demeure seul responsable de la validation technique de ses chaînes avant fabrication."
-    )
-
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Statut", "🟢 Phases 1, 2, 3 & Multi-Chaînes opérationnelles")
-    with col2:
-        st.metric("Tests unitaires", "115/115 validés (100%)")
-    with col3:
-        st.metric("Couverture backend", "100% sur 11 modules")
-
-
-if __name__ == "__main__":
-    main()
+pg.run()
