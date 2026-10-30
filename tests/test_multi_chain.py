@@ -292,6 +292,43 @@ class TestMultiChainProject:
         assert approx(res_orig.worst_case_plus, res_restored.worst_case_plus)
         assert approx(res_orig.rss_plus, res_restored.rss_plus)
 
+    def test_update_chain(self, project: MultiChainProject):
+        # Nominal update
+        c = project.update_chain("JEU_AXIAL", name="Jeu Axial Modifié", target_min=0.25, target_max=1.50)
+        assert c.name == "Jeu Axial Modifié"
+        assert approx(c.target_min, 0.25)
+        assert approx(c.target_max, 1.50)
+
+        # Empty name raises
+        with pytest.raises(ValueError, match="Le nom de la chaîne ne peut pas être vide"):
+            project.update_chain("JEU_AXIAL", name="")
+
+        # target_min > target_max raises
+        with pytest.raises(ValueError, match="target_min ne peut pas être strictement supérieur"):
+            project.update_chain("JEU_AXIAL", target_min=2.0, target_max=1.0)
+
+    def test_remove_link_from_chain(self, project: MultiChainProject):
+        chain = project.get_chain("JEU_AXIAL")
+        initial_count = len(chain.links)
+
+        # Remove 1st link
+        removed = project.remove_link_from_chain("JEU_AXIAL", 0)
+        assert removed.part_id == "CARTER"
+        assert len(chain.links) == initial_count - 1
+
+        # Invalid index raises IndexError
+        with pytest.raises(IndexError, match="Index de maillon invalide"):
+            project.remove_link_from_chain("JEU_AXIAL", 99)
+        with pytest.raises(IndexError, match="Index de maillon invalide"):
+            project.remove_link_from_chain("JEU_AXIAL", -1)
+
+    def test_clear_all(self, project: MultiChainProject):
+        assert len(project.parts) > 0
+        assert len(project.chains) > 0
+        project.clear_all()
+        assert len(project.parts) == 0
+        assert len(project.chains) == 0
+
     def test_invalid_deserialization(self):
         with pytest.raises(ValueError, match="JSON invalide"):
             MultiChainProject.from_json("corrupted json string {")

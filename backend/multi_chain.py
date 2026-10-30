@@ -158,6 +158,44 @@ class MultiChainProject:
             raise KeyError(f"Chaîne introuvable : {chain_id}")
         del self.chains[chain_id]
 
+    def update_chain(
+        self,
+        chain_id: str,
+        name: str | None = None,
+        description: str | None = None,
+        target_min: float | None = None,
+        target_max: float | None = None,
+    ) -> AssemblyChain:
+        """Update chain metadata and functional tolerance limits."""
+        chain = self.get_chain(chain_id)
+        new_name = str(name).strip() if name is not None else chain.name
+        if not new_name:
+            raise ValueError("Le nom de la chaîne ne peut pas être vide.")
+        new_desc = str(description) if description is not None else chain.description
+        new_tmin = target_min if target_min is not None else chain.target_min
+        new_tmax = target_max if target_max is not None else chain.target_max
+
+        if new_tmin is not None and new_tmax is not None and new_tmin > new_tmax:
+            raise ValueError("target_min ne peut pas être strictement supérieur à target_max.")
+
+        chain.name = new_name
+        chain.description = new_desc
+        chain.target_min = new_tmin
+        chain.target_max = new_tmax
+        return chain
+
+    def remove_link_from_chain(self, chain_id: str, link_index: int) -> ChainLink:
+        """Remove a link at link_index (0-indexed) from a chain."""
+        chain = self.get_chain(chain_id)
+        if link_index < 0 or link_index >= len(chain.links):
+            raise IndexError(f"Index de maillon invalide : {link_index} (taille de la chaîne : {len(chain.links)})")
+        return chain.links.pop(link_index)
+
+    def clear_all(self) -> None:
+        """Reset the whole project repository to empty state (0 parts, 0 chains)."""
+        self.parts.clear()
+        self.chains.clear()
+
     def add_link_to_chain(
         self,
         chain_id: str,
