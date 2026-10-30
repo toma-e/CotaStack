@@ -200,6 +200,8 @@ def main() -> None:
     # Session State Project Initialization
     if "multi_project" not in st.session_state:
         st.session_state.multi_project = init_default_project()
+    if "uploader_counter" not in st.session_state:
+        st.session_state.uploader_counter = 0
 
     project: MultiChainProject = st.session_state.multi_project
     materials = get_available_materials()
@@ -214,11 +216,13 @@ def main() -> None:
             project.clear_all()
             project.name = "Nouveau Système Mécanique"
             project.description = "Projet vierge"
+            st.session_state.uploader_counter += 1
             st.toast("Projet réinitialisé à vide !")
             st.rerun()
     with col_top3:
         if st.button("🔄 Démo (Boîte de vitesses)", use_container_width=True, help="Recharge l'exemple de démonstration complet"):
             st.session_state.multi_project = init_default_project()
+            st.session_state.uploader_counter += 1
             st.toast("Exemple de démonstration rechargé !")
             st.rerun()
 
@@ -231,15 +235,16 @@ def main() -> None:
             up_file_top = st.file_uploader(
                 "Sélectionner un fichier JSON de projet (.cotastack_multi.json)",
                 type=["json"],
-                key="up_proj_top",
+                key=f"up_proj_{st.session_state.uploader_counter}",
                 help="Charge un mécanisme complet sauvegardé avec son catalogue de pièces et ses chaînes de cotes.",
             )
             if up_file_top is not None:
                 try:
-                    raw_txt = up_file_top.read().decode("utf-8")
+                    raw_txt = up_file_top.getvalue().decode("utf-8")
                     loaded_proj = MultiChainProject.from_json(raw_txt)
                     st.session_state.multi_project = loaded_proj
-                    st.success(f"Projet '{loaded_proj.name}' chargé avec succès ({len(loaded_proj.parts)} pièces, {len(loaded_proj.chains)} chaînes) !")
+                    st.session_state.uploader_counter += 1
+                    st.toast(f"Projet '{loaded_proj.name}' chargé avec succès ({len(loaded_proj.parts)} pièces, {len(loaded_proj.chains)} chaînes) !")
                     st.rerun()
                 except Exception as e:
                     st.error(f"Erreur de lecture du fichier : {e}")
@@ -804,22 +809,13 @@ def main() -> None:
             st.download_button(
                 label="📥 Télécharger le projet système (.cotastack_multi.json)",
                 data=project_json,
-                file_name="systeme_multi_chaines.cotastack_multi.json",
+                file_name=f"{project.name.lower().replace(' ', '_')}.cotastack_multi.json",
                 mime="application/json",
                 use_container_width=True,
                 key="btn_download_multi",
             )
         with col_exp2:
-            uploaded_file = st.file_uploader("📂 Charger un projet système JSON", type=["json"], key="upload_multi_json")
-            if uploaded_file is not None:
-                try:
-                    content = uploaded_file.read().decode("utf-8")
-                    loaded_proj = MultiChainProject.from_json(content)
-                    st.session_state.multi_project = loaded_proj
-                    st.success(f"Projet '{loaded_proj.name}' chargé avec {len(loaded_proj.parts)} pièces et {len(loaded_proj.chains)} chaînes !")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Erreur lors du chargement : {e}")
+            st.info("💡 **Astuce** : Vous pouvez également sauvegarder ou charger vos fichiers de projet directement depuis le bandeau situé en haut de page.")
 
 
 if __name__ == "__main__":
