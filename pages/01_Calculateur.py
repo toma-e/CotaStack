@@ -20,6 +20,7 @@ from backend.thermal import (
     simulate_thermal_sensitivity,
 )
 from backend.monte_carlo import run_monte_carlo
+from backend.tolerance_synthesis import allocate_tolerances
 from backend.project_io import serialize_project, deserialize_project
 from backend.report_generator import generate_pdf_report
 
@@ -553,6 +554,111 @@ def main():
 
                 fig_hist.update_layout(xaxis_title="Jeu simulé (mm)", yaxis_title="Effectif", height=320, margin=dict(l=40, r=40, t=20, b=40))
                 st.plotly_chart(fig_hist, use_container_width=True)
+
+        # --- Optionnel : Allocation Inverse & Synthèse de Tolérances ---
+        st.divider()
+        with st.expander("🎯 Optionnel : Allocation Inverse & Synthèse de Tolérances", expanded=False):
+            st.markdown(
+                "L'**allocation inverse** résout le problème opposé : vous définissez l'intervalle de jeu total "
+                "admissible pour l'assemblage ($IT_{\\text{cible}}$), et l'algorithme distribue automatiquement "
+                "les tolérances $IT_i$ optimales sur chaque pièce."
+            )
+
+            col_inv1, col_inv2, col_inv3 = st.columns(3)
+            with col_inv1:
+                curr_tot_wc = sum(it.IT for it in items)
+                default_target_it = float(round(st.session_state.target_max - st.session_state.target_min, 4)) if (st.session_state.target_min is not None and st.session_state.target_max is not None and st.session_state.target_max > st.session_state.target_min) else round(curr_tot_wc * 0.8, 4)
+
+                inv_target_it = st.number_input(
+                    "IT Total Cible (mm)",
+                    min_value=0.001,
+                    max_value=50.0,
+                    value=default_target_it,
+                    step=0.01,
+                    format="%.4f",
+                    help="Intervalle de tolérance total recherché pour la chaîne",
+                    key="inv_target_it_input",
+                )
+
+            with col_inv2:
+                inv_mode = st.selectbox(
+                    "Règle de cumul",
+                    options=["wc", "rss"],
+                    format_func=lambda x: "Pire des cas (Worst-Case : Σ IT = Cible)" if x == "wc" else "Statistique (RSS : √(Σ IT²) = Cible)",
+                    key="inv_mode_input",
+                )
+
+            with col_inv3:
+                inv_method = st.selectbox(
+                    "Stratégie de répartition",
+                    options=["proportionnelle", "cout_usinage", "degré_iso"],
+                    format_func=lambda x: {
+                        "proportionnelle": "Proportionnelle aux tolérances actuelles",
+                        "cout_usinage": "Pondérée par difficulté / Coût d'usinage",
+                        "degré_iso": "Degré de précision ISO (fct des dimensions)",
+                    }[x],
+                    key="inv_method_input",
+                )
+
+            cost_weights: dict[str, float] = {}
+            if inv_method == "cout_usinage":
+                st.markdown("##### Coefficients de difficulté d'usinage par pièce")
+                st.caption("Un coefficient élevé (ex: 2.0x à 4.0x) protège la pièce en lui accordant une tolérance plus large pour réduire le coût d'usinage.")
+                cols_w = st.columns(min(len(items), 4))
+                for idx, it in enumerate(items):
+                    col_idx = cols_w[idx % len(cols_w)]
+                    with col_idx:
+                        cost_weights[it.name] = st.selectbox(
+                            f"{it.name}",
+                            options=[0.5, 1.0, 2.0, 4.0],
+                            format_func=lambda v: {0.5: "Facile / Éco (0.5x)", 1.0: "Standard (1.0x)", 2.0: "Coûteux / Finition (2.0x)", 4.0: "Très complexe (4.0x)"}[v],
+                            index=1,
+                            key=f"weight_{it.name}_{idx}",
+                        )
+
+            if st.button("⚙️ Calculer l'allocation inverse", type="primary", key="btn_run_allocation"):
+                alloc_res = allocate_tolerances(
+                    items,
+                    target_it=inv_target_it,
+                    mode=inv_mode,  # type: ignore
+                    method=inv_method,  # type: ignore
+                    cost_weights=cost_weights,
+                )
+                st.session_state.alloc_res = alloc_res
+
+            if "alloc_res" in st.session_state:
+                alloc_res = st.session_state.alloc_res
+                st.success(
+                    f"✅ **Tolérances allouées avec succès** pour un objectif de `{alloc_res.target_it:.4f} mm` "
+                    f"(Total atteint : `{alloc_res.achieved_it:.4f} mm` en mode {alloc_res.mode.upper()})."
+                )
+
+                alloc_table_data = []
+                for link in alloc_res.allocated_links:
+                    alloc_table_data.append({
+                        "Repère": link.name,
+                        "Nominal (mm)": link.nominal,
+                        "IT Actuel (mm)": f"{link.current_it:.4f}",
+                        "Nouvel IT (mm)": f"{link.new_it:.4f}",
+                        "Nouvel Écart Inf (EI)": f"{link.new_ei:+.4f}",
+                        "Nouvel Écart Sup (ES)": f"{link.new_es:+.4f}",
+                        "Évolution IT": f"{link.delta_it_pct:+.1f} %",
+                    })
+
+                st.dataframe(pd.DataFrame(alloc_table_data), use_container_width=True, hide_index=True)
+
+                if st.button("📥 Appliquer ces tolérances au tableau principal", type="secondary", key="btn_apply_allocation"):
+                    df_to_update = st.session_state.items_df.copy()
+                    for link in alloc_res.allocated_links:
+                        mask = df_to_update["Repère"].astype(str).str.strip() == link.name.strip()
+                        if mask.any():
+                            df_to_update.loc[mask, "ES (mm)"] = link.new_es
+                            df_to_update.loc[mask, "EI (mm)"] = link.new_ei
+                            df_to_update.loc[mask, "IT (mm)"] = link.new_it
+                    st.session_state.items_df = df_to_update
+                    del st.session_state.alloc_res
+                    st.success("Les nouvelles tolérances ont été appliquées au tableau principal !")
+                    st.rerun()
 
         # --- Official PDF Export & Lightweight Exports ---
         st.divider()

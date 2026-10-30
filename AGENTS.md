@@ -12,6 +12,7 @@ CotaStack/
 │   ├── iso_standards.py      # ISO 286-1/2, ISO 2768-1 lookup & fit calculations
 │   ├── thermal.py            # Differential thermal expansion (alpha, delta_T, J(T))
 │   ├── monte_carlo.py        # Stochastic simulation engine (100k runs, distributions, PPM)
+│   ├── tolerance_synthesis.py# Inverse tolerance allocation (cost, proportional, ISO)
 │   ├── project_io.py         # .cotastack JSON format save & load (privacy-first)
 │   └── report_generator.py   # Vectorized A4 PDF calculation report (ReportLab)
 ├── app.py                    # Streamlit entry point (multipage)
@@ -24,6 +25,7 @@ CotaStack/
 │   ├── test_iso_standards.py # ISO 286 and 2768-1 tests
 │   ├── test_thermal.py       # Thermal expansion tests
 │   ├── test_monte_carlo.py   # Monte Carlo simulation tests
+│   ├── test_tolerance_synthesis.py # Inverse allocation tests
 │   └── test_reports_and_io.py# .cotastack IO & PDF generator tests
 ├── landing/                  # Static redirection & portal page
 └── .streamlit/config.toml    # Theme & server config

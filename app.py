@@ -31,6 +31,7 @@ def main() -> None:
         st.checkbox("RSS (Statistique 3σ)", value=True, disabled=True)
         st.checkbox("Dilatation thermique (ΔT)", value=True, disabled=True)
         st.checkbox("Simulation Monte Carlo (PPM)", value=True, disabled=True)
+        st.checkbox("Allocation inverse & Synthèse", value=True, disabled=True)
 
         st.divider()
         st.markdown("[Documentation](https://github.com/cotastack)")
@@ -42,6 +43,7 @@ def main() -> None:
 
     ### Fonctionnalités opérationnelles
     - ✅ **Calculateur interactif** : Saisie vectorielle des maillons avec recalcul temps réel Pire des Cas (WC) & Statistique (RSS).
+    - ✅ **Allocation inverse & Synthèse (Optionnel)** : Détermination automatique des tolérances optimales par composant à partir d'un jeu cible global (stratégies proportionnelle, coût d'usinage, degré ISO).
     - ✅ **Compensation thermique ($\Delta T$)** : Prise en compte des coefficients de dilatation $\alpha$ des matériaux (aciers, alu, inox, laiton, polymères POM/PEEK) et courbe continue $J(T)$ de $-40^\circ\text{C}$ à $+120^\circ\text{C}$.
     - ✅ **Simulation stochastique Monte Carlo** : $100\,000$ tirages vectorisés avec lois normales, uniformes et triangulaires, calcul prédictif du taux de rebut en **PPM** et capabilités ($C_p, C_{pk}$).
     - ✅ **Référentiels ISO 286 & ISO 2768-1** : Système d'ajustements (H7/g6, etc.) avec qualification automatique (jeu/serrage/incertain) et tolérances générales.
@@ -60,9 +62,9 @@ def main() -> None:
     with col1:
         st.metric("Statut", "🟢 Phases 1, 2 & 3 opérationnelles")
     with col2:
-        st.metric("Tests unitaires", "64/64 validés (100%)")
+        st.metric("Tests unitaires", "71/71 validés (100%)")
     with col3:
-        st.metric("Couverture backend", "100% sur 6 modules")
+        st.metric("Couverture backend", "100% sur 7 modules")
 
 
 if __name__ == "__main__":
