@@ -191,6 +191,25 @@ class MultiChainProject:
             raise IndexError(f"Index de maillon invalide : {link_index} (taille de la chaîne : {len(chain.links)})")
         return chain.links.pop(link_index)
 
+    def set_link_orientation(self, chain_id: str, link_index: int, orientation: Literal[1, -1]) -> Literal[1, -1]:
+        """Update the vector orientation (1 or -1) of a link at link_index."""
+        if orientation not in (1, -1):
+            raise ValueError(f"L'orientation doit être 1 ou -1, reçu : {orientation}")
+        chain = self.get_chain(chain_id)
+        if link_index < 0 or link_index >= len(chain.links):
+            raise IndexError(f"Index de maillon invalide : {link_index} (taille de la chaîne : {len(chain.links)})")
+        chain.links[link_index].orientation = orientation
+        return orientation
+
+    def toggle_link_orientation(self, chain_id: str, link_index: int) -> Literal[1, -1]:
+        """Toggle the vector orientation (+1 <-> -1) of a link at link_index."""
+        chain = self.get_chain(chain_id)
+        if link_index < 0 or link_index >= len(chain.links):
+            raise IndexError(f"Index de maillon invalide : {link_index} (taille de la chaîne : {len(chain.links)})")
+        new_orient: Literal[1, -1] = -1 if chain.links[link_index].orientation == 1 else 1
+        chain.links[link_index].orientation = new_orient
+        return new_orient
+
     def clear_all(self) -> None:
         """Reset the whole project repository to empty state (0 parts, 0 chains)."""
         self.parts.clear()

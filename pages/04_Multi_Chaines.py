@@ -231,7 +231,7 @@ def render_1d_stack_diagram(chain: AssemblyChain, project: MultiChainProject):
             name=f"#{idx+1} {name}",
             hovertemplate=(
                 f"<b>#{idx+1} : {name}</b> ({source_tag})<br>"
-                f"Orientation: {orient_sym}1<br>"
+                f"Sens vectoriel : {orient_sym}<br>"
                 f"Nominal: {nom:.3f} mm<br>"
                 f"Cumul: [{start_x:.3f} &rarr; {end_x:.3f}] mm<extra></extra>"
             ),
@@ -906,22 +906,33 @@ def main() -> None:
                             source_badge = "<span style='color:#475569; background:#f1f5f9; padding:2px 6px; border-radius:4px; font-size:0.8rem;'>⚪ Locale</span>"
                             rep_name = link.custom_name or f"Cote locale {idx+1}"
 
-                        orient_badge = "<span class='vector-badge-pos'>+1</span>" if link.orientation > 0 else "<span class='vector-badge-neg'>-1</span>"
-
                         with st.container(border=True):
-                            c_r1, c_r2, c_r3, c_r4 = st.columns([2.2, 1.2, 1.6, 0.6])
+                            c_r1, c_r2, c_r3, c_r4, c_r5 = st.columns([1.8, 1.0, 1.0, 1.4, 0.6])
                             with c_r1:
                                 st.markdown(f"**#{idx+1} {rep_name}**")
-                                st.markdown(f"{orient_badge} &nbsp; {source_badge}", unsafe_allow_html=True)
+                                st.markdown(f"{source_badge}", unsafe_allow_html=True)
                             with c_r2:
+                                st.caption("Sens")
+                                is_pos = link.orientation > 0
+                                btn_label = "➕ +" if is_pos else "➖ -"
+                                if st.button(
+                                    btn_label,
+                                    key=f"tog_link_{active_chain.id}_{idx}",
+                                    help=f"Sens actuel : {'+' if is_pos else '-'}. Cliquer pour inverser en {'-' if is_pos else '+'}.",
+                                    use_container_width=True,
+                                ):
+                                    project.toggle_link_orientation(active_chain.id, idx)
+                                    st.toast(f"Sens du maillon #{idx+1} inversé en {'-' if is_pos else '+'} !")
+                                    st.rerun()
+                            with c_r3:
                                 st.caption("Nominal")
                                 st.markdown(f"**{nom:.3f}** mm")
-                            with c_r3:
+                            with c_r4:
                                 st.caption("Tolérances [EI ; ES]")
                                 st.markdown(f"`[{ei:+.3f} ; {es:+.3f}]`")
                                 st.caption(f"IT: {es-ei:.3f} mm")
-                            with c_r4:
-                                st.write("")
+                            with c_r5:
+                                st.caption("Action")
                                 if st.button("🗑️", key=f"del_link_{active_chain.id}_{idx}", help=f"Retirer le maillon #{idx+1}"):
                                     project.remove_link_from_chain(active_chain.id, idx)
                                     st.rerun()

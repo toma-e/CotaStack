@@ -322,6 +322,34 @@ class TestMultiChainProject:
         with pytest.raises(IndexError, match="Index de maillon invalide"):
             project.remove_link_from_chain("JEU_AXIAL", -1)
 
+    def test_update_and_toggle_link_orientation(self, project: MultiChainProject):
+        chain = project.get_chain("JEU_AXIAL")
+        assert chain.links[0].orientation == 1
+
+        # Toggle orientation (+1 -> -1)
+        new_orient = project.toggle_link_orientation("JEU_AXIAL", 0)
+        assert new_orient == -1
+        assert chain.links[0].orientation == -1
+
+        # Toggle back (-1 -> +1)
+        new_orient_2 = project.toggle_link_orientation("JEU_AXIAL", 0)
+        assert new_orient_2 == 1
+        assert chain.links[0].orientation == 1
+
+        # Set orientation explicitly
+        project.set_link_orientation("JEU_AXIAL", 0, -1)
+        assert chain.links[0].orientation == -1
+        project.set_link_orientation("JEU_AXIAL", 0, 1)
+        assert chain.links[0].orientation == 1
+
+        # Error cases: invalid index and invalid orientation
+        with pytest.raises(IndexError, match="Index de maillon invalide"):
+            project.toggle_link_orientation("JEU_AXIAL", 99)
+        with pytest.raises(IndexError, match="Index de maillon invalide"):
+            project.set_link_orientation("JEU_AXIAL", 99, 1)
+        with pytest.raises(ValueError, match="L'orientation doit être 1 ou -1"):
+            project.set_link_orientation("JEU_AXIAL", 0, 2)  # type: ignore
+
     def test_clear_all(self, project: MultiChainProject):
         assert len(project.parts) > 0
         assert len(project.chains) > 0
