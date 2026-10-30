@@ -13,6 +13,7 @@ class Item:
     es: float
     ei: float
     orientation: Literal[1, -1] = 1
+    material: str = "Acier"
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
     def __post_init__(self) -> None:

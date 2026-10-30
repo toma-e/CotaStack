@@ -5,6 +5,7 @@ import pandas as pd
 from datetime import date
 from backend.models import Item
 from backend.calculator import ChainCalculator
+from backend.report_generator import generate_pdf_report
 
 
 st.set_page_config(page_title="Rapports — CotaStack", page_icon="📄", layout="wide")
@@ -37,19 +38,22 @@ def dataframe_to_items(df: pd.DataFrame) -> list[Item]:
         if es < ei:
             es, ei = ei, es
 
+        material = str(row.get("Matériau", "Acier (standard)"))
+
         items.append(Item(
             name=name,
             nominal=nominal,
             es=es,
             ei=ei,
-            orientation=orientation,
+            orientation=orientation,  # type: ignore
+            material=material,
         ))
     return items
 
 
 def main():
-    st.title("📄 Rapports & Exportations Techniques")
-    st.caption("Édition de notes de calcul, exports légers et traçabilité documentaire")
+    st.title("📄 Rapports & Certification Documentaire")
+    st.caption("Édition de notes de calcul normées A4 (PDF), exports légers et visa qualité")
 
     # Check session data
     has_data = "items_df" in st.session_state and not st.session_state.items_df.empty
@@ -60,12 +64,12 @@ def main():
     with col_cartouche:
         st.subheader("🏷️ Cartouche d'identification")
         proj_name = st.text_input("Titre du projet / Étude", value="Assemblage Guidage Arbre-Carter")
-        author_name = st.text_input("Ingénieur d'études", value="Bureau d'Études Mécanique")
+        author_name = st.text_input("Ingénieur d'études / BE", value="Bureau d'Études Mécanique")
         rev = st.text_input("Indice de révision", value="A")
         calc_date = st.date_input("Date de validation", value=date.today())
 
     with col_export:
-        st.subheader("📦 Options d'export disponibles")
+        st.subheader("📦 Options d'export")
 
         if not items:
             st.warning("Aucune chaîne active dans le calculateur. Rendez-vous sur la page **🧮 Calculateur** pour saisir vos maillons.")
@@ -76,6 +80,34 @@ def main():
                 target_max=st.session_state.get("target_max"),
             )
             result = calc.calculate()
+
+            # Official PDF Export
+            mc_dict = {
+                "defect_ppm": st.session_state.mc_res.defect_ppm if "mc_res" in st.session_state else 0.0,
+                "cp": st.session_state.mc_res.cp if "mc_res" in st.session_state else None,
+                "cpk": st.session_state.mc_res.cpk if "mc_res" in st.session_state else None,
+            } if "mc_res" in st.session_state else None
+
+            pdf_bytes = generate_pdf_report(
+                items=items,
+                result=result,
+                project_metadata={
+                    "title": proj_name,
+                    "author": author_name,
+                    "revision": rev,
+                    "date": str(calc_date),
+                },
+                monte_carlo_summary=mc_dict,
+            )
+
+            st.download_button(
+                label="📄 Télécharger le Rapport Officiel (PDF A4)",
+                data=pdf_bytes,
+                file_name=f"note_calcul_{proj_name.lower().replace(' ', '_')}.pdf",
+                mime="application/pdf",
+                type="primary",
+                use_container_width=True,
+            )
 
             # CSV Export
             csv_bytes = st.session_state.items_df.to_csv(index=False).encode("utf-8")
@@ -95,13 +127,14 @@ def main():
                 f"- **Révision** : {rev}",
                 "",
                 "## 1. Données dimensionnelles d'entrée",
-                "| Repère | Orientation | Nominal (mm) | EI (mm) | ES (mm) | IT (mm) | L_moy (mm) |",
-                "|:-------|:-----------:|:------------:|:-------:|:-------:|:-------:|:----------:|",
+                "| Repère | Sens | Nominal (mm) | EI (mm) | ES (mm) | IT (mm) | L_moy (mm) | Matériau |",
+                "|:-------|:----:|:------------:|:-------:|:-------:|:-------:|:----------:|:--------:|",
             ]
             for it in items:
                 sign = "+" if it.orientation > 0 else "-"
+                mat_short = (it.material or "Acier").split()[0]
                 report_lines.append(
-                    f"| {it.name} | {sign} | {it.nominal:.4f} | {it.ei:+.4f} | {it.es:+.4f} | {it.IT:.4f} | {it.L_moy:.4f} |"
+                    f"| {it.name} | {sign} | {it.nominal:.4f} | {it.ei:+.4f} | {it.es:+.4f} | {it.IT:.4f} | {it.L_moy:.4f} | {mat_short} |"
                 )
 
             it_wc = sum(i.IT for i in items)
@@ -150,15 +183,6 @@ def main():
         st.divider()
         st.subheader("👁️ Aperçu de la note de calcul")
         st.markdown(full_md_report)
-
-    # --- Phase 3 Teaser: PDF Normé ---
-    st.divider()
-    st.markdown("### 📑 Bientôt disponible : Générateur PDF normé A4 (Phase 3)")
-    st.info(
-        "Le module de certification documentaire exportera directement un fichier PDF vectoriel A4 haute définition "
-        "comportant cartouche officiel d'entreprise, graphiques vectoriels haute résolution (Pareto, Gauss), "
-        "bilans de conformité et blocs de signatures électroniques."
-    )
 
     # --- Disclaimer ---
     st.divider()

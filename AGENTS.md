@@ -1,25 +1,32 @@
 # CotaStack — Agent Instructions
 
 ## Project Overview
-Streamlit web app for 1D mechanical tolerance chain analysis (Worst-Case & RSS). Pure Python backend + Streamlit frontend.
+Streamlit web app for 1D mechanical tolerance chain analysis (Worst-Case & RSS, Thermal Expansion, Monte Carlo, ISO Standards, PDF Reports). Pure Python backend + Streamlit frontend.
 
 ## Structure
 ```
 CotaStack/
-├── backend/               # Core logic (models, calculator, ISO standards)
-│   ├── models.py          # Item, ChainResult dataclasses
-│   ├── calculator.py      # ChainCalculator: WC, RSS, Pareto, Compliance
-│   └── iso_standards.py   # ISO 286-1/2, ISO 2768-1 lookup & fit calculations
-├── app.py                 # Streamlit entry point (multipage)
-├── pages/                 # Streamlit pages
-│   ├── 01_Calculateur.py  # 1D tolerance chain calculator & visualizations
-│   ├── 02_Standards_ISO.py# ISO 286 fits and ISO 2768 tolerances explorer
-│   └── 03_Rapports.py     # Reports, lightweight exports (CSV, MD) & PDF
-├── tests/                 # pytest suite
-│   ├── test_calculator.py # Item and ChainCalculator tests
-│   └── test_iso_standards.py # ISO 286 and 2768-1 tests
-├── landing/               # Static marketing page
-└── .streamlit/config.toml # Theme & server config
+├── backend/                  # Core engineering logic
+│   ├── models.py             # Item, ChainResult dataclasses
+│   ├── calculator.py         # ChainCalculator: WC, RSS, Pareto, Compliance
+│   ├── iso_standards.py      # ISO 286-1/2, ISO 2768-1 lookup & fit calculations
+│   ├── thermal.py            # Differential thermal expansion (alpha, delta_T, J(T))
+│   ├── monte_carlo.py        # Stochastic simulation engine (100k runs, distributions, PPM)
+│   ├── project_io.py         # .cotastack JSON format save & load (privacy-first)
+│   └── report_generator.py   # Vectorized A4 PDF calculation report (ReportLab)
+├── app.py                    # Streamlit entry point (multipage)
+├── pages/                    # Streamlit pages
+│   ├── 01_Calculateur.py     # 1D tolerance chain calculator, thermal & Monte Carlo tabs
+│   ├── 02_Standards_ISO.py   # ISO 286 fits and ISO 2768 tolerances explorer
+│   └── 03_Rapports.py        # Official A4 PDF reports, CSV and Markdown exports
+├── tests/                    # pytest suite (100% backend coverage target)
+│   ├── test_calculator.py    # Item and ChainCalculator tests
+│   ├── test_iso_standards.py # ISO 286 and 2768-1 tests
+│   ├── test_thermal.py       # Thermal expansion tests
+│   ├── test_monte_carlo.py   # Monte Carlo simulation tests
+│   └── test_reports_and_io.py# .cotastack IO & PDF generator tests
+├── landing/                  # Static redirection & portal page
+└── .streamlit/config.toml    # Theme & server config
 ```
 
 ## Commands
@@ -36,11 +43,12 @@ CotaStack/
 - Backend is importable as `from backend.models import Item`
 - Item validation: `es >= ei`, `nominal >= 0`, `orientation in (1, -1)`
 - Dimensions and tolerances in millimeters (mm) in models and calculator; ISO tables convert µm -> mm
-- ISO standards module covers ISO 286 (fits H7/g6, etc.) and ISO 2768-1 (general linear and chamfer tolerances)
+- Thermal expansion: standard ISO 1 reference temperature is 20.0 °C
+- Monte Carlo: vectorized with NumPy, standard run is 100,000 iterations
 
 ## Testing
-- Tests in `tests/test_calculator.py` and `tests/test_iso_standards.py`
-- Uses `approx_equal` helper for float comparisons (rel_tol=1e-9)
+- Tests in `tests/test_calculator.py`, `tests/test_iso_standards.py`, `tests/test_thermal.py`, `tests/test_monte_carlo.py`, `tests/test_reports_and_io.py`
+- Uses `approx_equal` helper for float comparisons
 - Target: 100% test coverage on backend modules
 
 ## Development Notes
