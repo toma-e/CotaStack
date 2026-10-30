@@ -31,6 +31,7 @@ Thumbs.db
 # Testing
 .pytest_cache/
 .coverage
+.coverage.*
 htmlcov/
 .tox/
 
@@ -46,7 +47,13 @@ dist/
 *.log
 logs/
 
+# Local exports & generated data
+*.cotastack
+*.pdf
+*.csv
+feedbacks*.jsonl
+feedback*.jsonl
+
 # Misc
 *.pot
 *.pyc
-feedbacks*.jsonl

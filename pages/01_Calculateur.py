@@ -60,6 +60,11 @@ def items_to_dataframe(items: list[Item]) -> pd.DataFrame:
     return pd.DataFrame(data)
 
 
+def reset_editor() -> None:
+    """Invalide l'état interne de st.data_editor pour synchroniser proprement items_df."""
+    st.session_state.editor_key = st.session_state.get("editor_key", 0) + 1
+
+
 def dataframe_to_items(df: pd.DataFrame) -> list[Item]:
     """Convert edited DataFrame back to list of Items."""
     items = []
@@ -78,9 +83,14 @@ def dataframe_to_items(df: pd.DataFrame) -> list[Item]:
                 orientation = 1
 
         try:
-            nominal = float(row.get("Nominal (mm)", 0.0))
-            es = float(row.get("ES (mm)", 0.0))
-            ei = float(row.get("EI (mm)", 0.0))
+            val_nom = row.get("Nominal (mm)", 0.0)
+            val_es = row.get("ES (mm)", 0.0)
+            val_ei = row.get("EI (mm)", 0.0)
+            if pd.isna(val_nom) or pd.isna(val_es) or pd.isna(val_ei):
+                continue
+            nominal = float(val_nom)
+            es = float(val_es)
+            ei = float(val_ei)
         except (ValueError, TypeError):
             continue
 
@@ -148,6 +158,7 @@ def main():
                     st.session_state.target_min = proj_data.get("target_min")
                     st.session_state.target_max = proj_data.get("target_max")
                     st.session_state.t_service = proj_data.get("t_service", 20.0)
+                    reset_editor()
                     st.success("Projet chargé avec succès !")
                     st.rerun()
                 except Exception as err:
@@ -218,6 +229,7 @@ def main():
         st.divider()
         if st.button("🗑️ Vider le tableau", use_container_width=True):
             st.session_state.items_df = pd.DataFrame([create_empty_item()])
+            reset_editor()
             st.rerun()
 
     # --- Assistant injection ISO 286 / 2768 / GPS ---
@@ -262,6 +274,7 @@ def main():
                         st.session_state.items_df = pd.DataFrame([new_row])
                     else:
                         st.session_state.items_df = pd.concat([cur_df, pd.DataFrame([new_row])], ignore_index=True)
+                    reset_editor()
                     st.success(f"Cote {sym_clean} injectée avec ES={es_calc:+.4f}, EI={ei_calc:+.4f} mm")
                     st.rerun()
 
@@ -296,6 +309,7 @@ def main():
                         st.session_state.items_df = pd.DataFrame([new_row])
                     else:
                         st.session_state.items_df = pd.concat([cur_df, pd.DataFrame([new_row])], ignore_index=True)
+                    reset_editor()
                     st.success(f"Cote injectée avec ±{tol:.2f} mm")
                     st.rerun()
 
@@ -356,6 +370,7 @@ def main():
                         st.session_state.items_df = pd.DataFrame([new_row])
                     else:
                         st.session_state.items_df = pd.concat([cur_df, pd.DataFrame([new_row])], ignore_index=True)
+                    reset_editor()
                     st.success(f"Tolérance géométrique injectée : ±{half_t:.3f} mm (t_total = {g_res.total_geometric_tolerance:.3f} mm)")
                     st.rerun()
 
@@ -423,16 +438,19 @@ def main():
         num_rows="dynamic",
         use_container_width=True,
         hide_index=True,
-        key="items_editor",
+        key=f"items_editor_{st.session_state.get('editor_key', 0)}",
     )
 
     if not edited_df.empty:
         try:
-            edited_df["IT (mm)"] = edited_df["ES (mm)"] - edited_df["EI (mm)"]
+            edited_df["IT (mm)"] = (
+                pd.to_numeric(edited_df["ES (mm)"], errors="coerce").fillna(0.0)
+                - pd.to_numeric(edited_df["EI (mm)"], errors="coerce").fillna(0.0)
+            ).round(5)
         except Exception:
             pass
 
-    st.session_state.items_df = edited_df
+    st.session_state.items_df = edited_df.copy()
     items = dataframe_to_items(edited_df)
 
     if items:
@@ -722,6 +740,7 @@ def main():
                             df_to_update.loc[mask, "IT (mm)"] = link.new_it
                     st.session_state.items_df = df_to_update
                     del st.session_state.alloc_res
+                    reset_editor()
                     st.success("Les nouvelles tolérances ont été appliquées au tableau principal !")
                     st.rerun()
 
