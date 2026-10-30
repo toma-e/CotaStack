@@ -1,8 +1,21 @@
 """Test suite for user feedback collection module."""
 
-import pytest
+from io import BytesIO
+import json
 from pathlib import Path
-from backend.feedback import FeedbackItem, save_feedback, load_feedbacks
+import urllib.error
+from unittest.mock import patch, MagicMock
+
+import pytest
+
+from backend.feedback import (
+    FeedbackItem,
+    save_feedback,
+    load_feedbacks,
+    format_github_issue_content,
+    build_github_issue_url,
+    submit_github_issue,
+)
 
 
 class TestFeedbackModule:
@@ -65,3 +78,96 @@ class TestFeedbackModule:
         assert reconstructed.message == item.message
         assert reconstructed.timestamp == item.timestamp
         assert reconstructed.metadata == item.metadata
+
+
+class TestGitHubIssueIntegration:
+    """Tests for formatting, URL generation, and GitHub REST API integration."""
+
+    def test_format_github_issue_content(self):
+        item = FeedbackItem(
+            timestamp="2026-10-30T22:00:00Z",
+            feedback_type="suggestion",
+            message="Ajouter un export Excel XLS\nDeuxième ligne de détail",
+            author_email="engineer@company.com",
+            metadata={"page": "04_Multi_Chaines"},
+        )
+        title, body = format_github_issue_content(item)
+        assert "[Retour Utilisateur]" in title
+        assert "Ajouter un export Excel XLS" in title
+        assert "engineer@company.com" in body
+        assert "04_Multi_Chaines" in body
+        assert "Deuxième ligne de détail" in body
+
+    def test_format_anonymous_feedback(self):
+        item = FeedbackItem(
+            timestamp="2026-10-30T22:00:00Z",
+            feedback_type="general",
+            message="Avis court",
+            author_email="",
+        )
+        title, body = format_github_issue_content(item)
+        assert "Anonyme" in body
+
+    def test_build_github_issue_url(self):
+        url = build_github_issue_url(
+            title="Titre Test",
+            body="Description avec accents et espaces",
+            repo="toma-e/CotaStack",
+            labels=["user-feedback", "enhancement"],
+        )
+        assert url.startswith("https://github.com/toma-e/CotaStack/issues/new?")
+        assert "Titre+Test" in url or "Titre%20Test" in url
+        assert "labels=user-feedback%2Cenhancement" in url or "labels=user-feedback%2Cenhancement" in url or "labels=user-feedback" in url
+
+    def test_submit_github_issue_empty_token_raises(self):
+        with pytest.raises(ValueError, match="jeton d'accès GitHub"):
+            submit_github_issue("Titre", "Corps", token="")
+
+    @patch("urllib.request.urlopen")
+    def test_submit_github_issue_success(self, mock_urlopen):
+        mock_response = MagicMock()
+        mock_response.read.return_value = json.dumps({
+            "id": 123456,
+            "number": 42,
+            "html_url": "https://github.com/toma-e/CotaStack/issues/42",
+            "title": "Titre test",
+        }).encode("utf-8")
+        mock_urlopen.return_value.__enter__.return_value = mock_response
+
+        res = submit_github_issue(
+            title="Bug calcul",
+            body="Détails du bug",
+            token="ghp_fake_token_test",
+            repo="toma-e/CotaStack",
+        )
+
+        assert res["number"] == 42
+        assert res["html_url"] == "https://github.com/toma-e/CotaStack/issues/42"
+
+    @patch("urllib.request.urlopen")
+    def test_submit_github_issue_http_error(self, mock_urlopen):
+        err_fp = BytesIO(b'{"message": "Bad credentials"}')
+        mock_urlopen.side_effect = urllib.error.HTTPError(
+            url="https://api.github.com/repos/toma-e/CotaStack/issues",
+            code=401,
+            msg="Unauthorized",
+            hdrs=MagicMock(),
+            fp=err_fp,
+        )
+
+        with pytest.raises(RuntimeError, match="Erreur GitHub API"):
+            submit_github_issue(
+                title="Bug",
+                body="Détail",
+                token="invalid_token",
+            )
+
+    @patch("urllib.request.urlopen")
+    def test_submit_github_issue_generic_exception(self, mock_urlopen):
+        mock_urlopen.side_effect = ConnectionError("Network down")
+        with pytest.raises(RuntimeError, match="Échec de connexion"):
+            submit_github_issue(
+                title="Bug",
+                body="Détail",
+                token="dummy",
+            )

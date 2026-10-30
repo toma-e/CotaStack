@@ -4,6 +4,7 @@ Gestion centralisée des pièces maîtresses, Schéma vectoriel 1D & Calculs ari
 Interface ergonomique et visuelle enrichie pour les bureaux d'études.
 """
 
+import os
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -17,7 +18,12 @@ from backend.multi_chain import (
 )
 from backend.iso_standards import get_available_iso286_symbols, get_iso286_limits
 from backend.thermal import get_available_materials
-from backend.feedback import save_feedback
+from backend.feedback import (
+    save_feedback,
+    format_github_issue_content,
+    build_github_issue_url,
+    submit_github_issue,
+)
 
 st.set_page_config(
     page_title="Multi-Chaînes Système — CotaStack",
@@ -454,9 +460,9 @@ def render_impact_heatmap(project: MultiChainProject, summary):
 
 
 def render_feedback_form(location: str = "popover") -> None:
-    """Render the user feedback & suggestion form."""
+    """Render the user feedback & suggestion form with GitHub Issues integration."""
     st.markdown("##### 💬 Votre avis pour faire progresser CotaStack")
-    st.caption("Une idée de fonctionnalité, un besoin de calcul ou un retour d'expérience ? Partagez-le directement avec l'équipe.")
+    st.caption("Une idée de fonctionnalité, un besoin métier ou un retour d'expérience ? Vos retours sont centralisés sur GitHub.")
 
     fb_type = st.selectbox(
         "Type de retour",
@@ -480,30 +486,40 @@ def render_feedback_form(location: str = "popover") -> None:
         key=f"fb_email_{location}",
     )
 
-    col_btn_send, col_btn_gh = st.columns([1.5, 1])
-    with col_btn_send:
-        if st.button("🚀 Envoyer mon retour", type="primary", use_container_width=True, key=f"btn_send_fb_{location}"):
-            if not fb_msg.strip():
-                st.warning("Merci de renseigner un message avant d'envoyer.")
-            else:
-                try:
-                    save_feedback(
-                        message=fb_msg,
-                        feedback_type=fb_type.split()[1] if len(fb_type.split()) > 1 else "suggestion",
-                        author_email=fb_email,
-                        metadata={"location": location},
-                    )
-                    st.success("✅ Merci beaucoup ! Votre retour a bien été enregistré et sera étudié avec attention.")
-                except Exception as err:
-                    st.error(f"Erreur d'enregistrement : {err}")
+    clean_type = fb_type.split()[1].lower() if len(fb_type.split()) > 1 else "suggestion"
 
-    with col_btn_gh:
-        st.link_button(
-            "🐙 Issue GitHub",
-            url="https://github.com/toma-e/CotaStack/issues/new",
-            use_container_width=True,
-            help="Ouvrir un ticket public sur le dépôt GitHub",
-        )
+    # Vérification présence éventuelle d'un token GitHub dans secrets ou env
+    gh_token = ""
+    try:
+        gh_token = st.secrets.get("GITHUB_TOKEN", "")
+    except Exception:
+        gh_token = os.environ.get("GITHUB_TOKEN", "")
+
+    if st.button("🚀 Envoyer mon retour", type="primary", use_container_width=True, key=f"btn_send_fb_{location}"):
+        if not fb_msg.strip():
+            st.warning("Merci de renseigner un message avant d'envoyer.")
+        else:
+            fb_item = save_feedback(
+                message=fb_msg,
+                feedback_type=clean_type,
+                author_email=fb_email,
+                metadata={"location": location},
+            )
+            issue_title, issue_body = format_github_issue_content(fb_item)
+
+            if gh_token:
+                try:
+                    res = submit_github_issue(issue_title, issue_body, token=gh_token)
+                    st.success(f"✅ Merci beaucoup ! Votre retour a été publié directement sur GitHub : [Issue #{res.get('number')}]({res.get('html_url')})")
+                except Exception as err:
+                    st.warning(f"Retour enregistré localement. Publication automatique GitHub indisponible : {err}")
+                    direct_url = build_github_issue_url(issue_title, issue_body)
+                    st.link_button("🐙 Publier sur GitHub en 1 clic", url=direct_url, use_container_width=True)
+            else:
+                st.success("✅ Merci beaucoup ! Votre retour a bien été enregistré.")
+                direct_url = build_github_issue_url(issue_title, issue_body)
+                st.info("💡 Vous pouvez également ouvrir directement l'issue sur GitHub en un clic pour suivre son avancement :")
+                st.link_button("🐙 Ouvrir le ticket sur GitHub", url=direct_url, use_container_width=True)
 
 
 def main() -> None:

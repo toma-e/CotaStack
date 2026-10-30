@@ -1,16 +1,21 @@
 """Feedback collection module for CotaStack.
 
 Allows users to submit suggestions, bug reports, or feature requests.
-Stores feedback locally in a JSONL file with ISO timestamps and privacy protections.
+Stores feedback locally in a JSONL file with ISO timestamps and privacy protections,
+and provides GitHub Issues integration for centralized public or private tracking.
 """
 
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
 import json
 from pathlib import Path
+import urllib.parse
+import urllib.request
+import urllib.error
 
 
 DEFAULT_FEEDBACK_FILE = Path("feedbacks.jsonl")
+DEFAULT_GITHUB_REPO = "toma-e/CotaStack"
 
 
 @dataclass(slots=True)
@@ -84,3 +89,111 @@ def load_feedbacks(filepath: Path | str = DEFAULT_FEEDBACK_FILE) -> list[Feedbac
                 continue
 
     return items
+
+
+def format_github_issue_content(item: FeedbackItem) -> tuple[str, str]:
+    """Format title and markdown body for a GitHub issue from a FeedbackItem."""
+    type_labels = {
+        "suggestion": "💡 Suggestion",
+        "bug": "🐞 Signalement Bug",
+        "feature": "✨ Fonctionnalité",
+        "general": "🌟 Retour utilisateur",
+    }
+    label = type_labels.get(item.feedback_type.lower(), f"💬 {item.feedback_type.capitalize()}")
+
+    # Build concise excerpt for the title
+    first_line = item.message.split("\n")[0].strip()
+    excerpt = (first_line[:50] + "...") if len(first_line) > 50 else first_line
+    title = f"[Retour Utilisateur] {label} : {excerpt}"
+
+    body_lines = [
+        "### 💬 Nouveau retour utilisateur CotaStack",
+        "",
+        f"- **Type** : {label}",
+        f"- **Horodatage (UTC)** : `{item.timestamp}`",
+        f"- **Contact / E-mail** : `{item.author_email}`" if item.author_email else "- **Contact** : *Non communiqué (Anonyme)*",
+    ]
+
+    for k, v in item.metadata.items():
+        body_lines.append(f"- **{k}** : `{v}`")
+
+    body_lines.extend([
+        "",
+        "---",
+        "",
+        "### 📝 Message / Besoin exprimé :",
+        "",
+        item.message,
+        "",
+        "---",
+        "*Soumis directement depuis l'application CotaStack.*",
+    ])
+
+    return title, "\n".join(body_lines)
+
+
+def build_github_issue_url(
+    title: str,
+    body: str,
+    repo: str = DEFAULT_GITHUB_REPO,
+    labels: list[str] | None = None,
+) -> str:
+    """Build a pre-filled GitHub web URL to open the issue creation page."""
+    base = f"https://github.com/{repo}/issues/new"
+    query_params: dict[str, str] = {
+        "title": title,
+        "body": body,
+    }
+    if labels:
+        query_params["labels"] = ",".join(labels)
+
+    return f"{base}?{urllib.parse.urlencode(query_params)}"
+
+
+def submit_github_issue(
+    title: str,
+    body: str,
+    token: str,
+    repo: str = DEFAULT_GITHUB_REPO,
+    labels: list[str] | None = None,
+) -> dict:
+    """Create a new GitHub issue in the target repository using the official GitHub REST API."""
+    clean_token = str(token or "").strip()
+    if not clean_token:
+        raise ValueError("Le jeton d'accès GitHub (GITHUB_TOKEN) est manquant ou vide.")
+
+    url = f"https://api.github.com/repos/{repo}/issues"
+    headers = {
+        "Authorization": f"Bearer {clean_token}",
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "CotaStack-Feedback-Client",
+        "X-GitHub-Api-Version": "2022-11-28",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "title": title,
+        "body": body,
+        "labels": labels or ["user-feedback"],
+    }
+
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers=headers,
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=10) as response:
+            res_data = json.loads(response.read().decode("utf-8"))
+            return {
+                "id": res_data.get("id"),
+                "number": res_data.get("number"),
+                "html_url": res_data.get("html_url"),
+                "title": res_data.get("title"),
+            }
+    except urllib.error.HTTPError as e:
+        err_msg = e.read().decode("utf-8") if e.fp else str(e)
+        raise RuntimeError(f"Erreur GitHub API ({e.code}) : {err_msg}") from e
+    except Exception as e:
+        raise RuntimeError(f"Échec de connexion à GitHub : {e}") from e
