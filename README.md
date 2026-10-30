@@ -133,3 +133,13 @@ git push origin feature/ma-fonctionnalite
 - **Email** : contact@cotastack.app
 - **GitHub** : [github.com/cotastack](https://github.com/cotastack)
 - **Landing page** : `landing/index.html` (à déployer sur GitHub Pages / Netlify / Vercel)
+
+---
+
+## 📄 Licence
+
+Ce projet est distribué sous la licence [**CotaStack Source-Available & Non-Commercial Code License**](LICENSE).
+
+- **Utilisation interne autorisée** : Toute personne ou entreprise (y compris commerciale, bureaux d'études, industriels) peut utiliser librement l'application dans le cadre de ses activités professionnelles internes et exploiter/diffuser les rapports techniques et résultats de calcul produits.
+- **Restrictions commerciales sur le code** : La revente, la sous-licence, l'hébergement en service commercial payant (SaaS) ou l'incorporation directe du code source dans des produits commerciaux tiers est strictement interdite sans autorisation écrite préalable.
+- **Clause de non-responsabilité technique** : Le logiciel est fourni « tel quel » sans garantie d'exactitude absolue. Tout calcul ou tolérancement doit être validé par un ingénieur qualifié avant mise en fabrication. Les auteurs déclinent toute responsabilité en cas de rebut, d'interférence d'assemblage ou de dommages directs ou indirects.
