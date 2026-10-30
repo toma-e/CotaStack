@@ -17,12 +17,15 @@ def dataframe_to_items(df: pd.DataFrame) -> list[Item]:
         name = str(row.get("Repère", "")).strip()
         if not name:
             continue
-        try:
-            orientation = int(row.get("Orientation", 1))
-            if orientation not in (1, -1):
+
+        raw_orient = row.get("Orientation", "+")
+        if isinstance(raw_orient, str):
+            orientation = -1 if raw_orient.strip() == "-" else 1
+        else:
+            try:
+                orientation = -1 if int(raw_orient) < 0 else 1
+            except (ValueError, TypeError):
                 orientation = 1
-        except (ValueError, TypeError):
-            orientation = 1
 
         try:
             nominal = float(row.get("Nominal (mm)", 0.0))
@@ -96,7 +99,7 @@ def main():
                 "|:-------|:-----------:|:------------:|:-------:|:-------:|:-------:|:----------:|",
             ]
             for it in items:
-                sign = "+1" if it.orientation > 0 else "-1"
+                sign = "+" if it.orientation > 0 else "-"
                 report_lines.append(
                     f"| {it.name} | {sign} | {it.nominal:.4f} | {it.ei:+.4f} | {it.es:+.4f} | {it.IT:.4f} | {it.L_moy:.4f} |"
                 )

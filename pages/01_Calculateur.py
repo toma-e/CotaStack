@@ -23,7 +23,7 @@ def create_empty_item() -> dict:
     """Create an empty item dict for the data editor."""
     return {
         "Repère": "",
-        "Orientation": 1,
+        "Orientation": "+",
         "Nominal (mm)": 0.0,
         "ES (mm)": 0.0,
         "EI (mm)": 0.0,
@@ -37,7 +37,7 @@ def items_to_dataframe(items: list[Item]) -> pd.DataFrame:
     for item in items:
         data.append({
             "Repère": item.name,
-            "Orientation": item.orientation,
+            "Orientation": "+" if item.orientation > 0 else "-",
             "Nominal (mm)": item.nominal,
             "ES (mm)": item.es,
             "EI (mm)": item.ei,
@@ -55,12 +55,15 @@ def dataframe_to_items(df: pd.DataFrame) -> list[Item]:
         name = str(row["Repère"]).strip()
         if not name:
             continue
-        try:
-            orientation = int(row["Orientation"])
-            if orientation not in (1, -1):
+        
+        raw_orient = row.get("Orientation", "+")
+        if isinstance(raw_orient, str):
+            orientation = -1 if raw_orient.strip() == "-" else 1
+        else:
+            try:
+                orientation = -1 if int(raw_orient) < 0 else 1
+            except (ValueError, TypeError):
                 orientation = 1
-        except (ValueError, TypeError):
-            orientation = 1
 
         try:
             nominal = float(row["Nominal (mm)"])
@@ -98,7 +101,7 @@ def generate_markdown_summary(items: list[Item], result: ChainResult) -> str:
         "|:-------|:----:|:------------:|:-------:|:-------:|:-------:|:----------:|",
     ]
     for it in items:
-        sign = "+1" if it.orientation > 0 else "-1"
+        sign = "+" if it.orientation > 0 else "-"
         lines.append(f"| {it.name} | {sign} | {it.nominal:.4f} | {it.ei:+.4f} | {it.es:+.4f} | {it.IT:.4f} | {it.L_moy:.4f} |")
 
     lines.extend([
@@ -134,10 +137,15 @@ def main():
     # Initialize session state
     if "items_df" not in st.session_state:
         st.session_state.items_df = pd.DataFrame([
-            {"Repère": "Cote A (Carter)", "Orientation": 1, "Nominal (mm)": 50.0, "ES (mm)": 0.05, "EI (mm)": -0.05, "IT (mm)": 0.1},
-            {"Repère": "Cote B (Arbre)", "Orientation": -1, "Nominal (mm)": 30.0, "ES (mm)": 0.02, "EI (mm)": -0.02, "IT (mm)": 0.04},
-            {"Repère": "Cote C (Bague)", "Orientation": -1, "Nominal (mm)": 18.0, "ES (mm)": 0.03, "EI (mm)": -0.03, "IT (mm)": 0.06},
+            {"Repère": "Cote A (Carter)", "Orientation": "+", "Nominal (mm)": 50.0, "ES (mm)": 0.05, "EI (mm)": -0.05, "IT (mm)": 0.1},
+            {"Repère": "Cote B (Arbre)", "Orientation": "-", "Nominal (mm)": 30.0, "ES (mm)": 0.02, "EI (mm)": -0.02, "IT (mm)": 0.04},
+            {"Repère": "Cote C (Bague)", "Orientation": "-", "Nominal (mm)": 18.0, "ES (mm)": 0.03, "EI (mm)": -0.03, "IT (mm)": 0.06},
         ])
+    else:
+        if "Orientation" in st.session_state.items_df.columns:
+            st.session_state.items_df["Orientation"] = st.session_state.items_df["Orientation"].replace(
+                {1: "+", -1: "-", 1.0: "+", -1.0: "-", "+1": "+", "-1": "-"}
+            )
     if "target_min" not in st.session_state:
         st.session_state.target_min = 1.8
     if "target_max" not in st.session_state:
@@ -190,7 +198,7 @@ def main():
             with col_a1:
                 iso_name = st.text_input("Repère", value="Alésage guidage", key="iso_name_input")
             with col_a2:
-                iso_orient = st.selectbox("Sens", options=[1, -1], format_func=lambda x: "+1" if x > 0 else "-1", key="iso_orient_input")
+                iso_orient = st.selectbox("Sens", options=["+", "-"], key="iso_orient_input")
             with col_a3:
                 iso_nominal = st.number_input("Nominal (mm)", min_value=0.5, max_value=500.0, value=20.0, step=1.0, key="iso_nom_input")
             with col_a4:
@@ -225,7 +233,7 @@ def main():
             with col_b1:
                 gen_name = st.text_input("Repère", value="Cote brute", key="gen_name_input")
             with col_b2:
-                gen_orient = st.selectbox("Sens", options=[1, -1], format_func=lambda x: "+1" if x > 0 else "-1", key="gen_orient_input")
+                gen_orient = st.selectbox("Sens", options=["+", "-"], key="gen_orient_input")
             with col_b3:
                 gen_nominal = st.number_input("Nominal (mm)", min_value=0.5, max_value=4000.0, value=35.0, step=1.0, key="gen_nom_input")
             with col_b4:
@@ -263,8 +271,8 @@ def main():
         ),
         "Orientation": st.column_config.SelectboxColumn(
             "Orientation",
-            help="Sens vectoriel : +1 (augmente le jeu) ou -1 (réduit le jeu)",
-            options=[1, -1],
+            help="Sens vectoriel : + (augmente le jeu) ou - (réduit le jeu)",
+            options=["+", "-"],
             required=True,
             width="small",
         ),
