@@ -1,4 +1,4 @@
-"""CotaStack - Standards ISO : Ajustements ISO 286 et Tolérances générales ISO 2768-1."""
+"""CotaStack - Standards ISO : Ajustements ISO 286, Tolérances générales ISO 2768-1 & Tolérancement Géométrique ISO GPS (Ⓜ)."""
 
 import streamlit as st
 import pandas as pd
@@ -13,6 +13,11 @@ from backend.iso_standards import (
     ISO_2768_1_LINEAR,
     ISO_2768_1_BROKEN_EDGES,
     ISO_2768_1_ANGULAR,
+)
+from backend.geometric_tolerances import (
+    GeometricSpec,
+    evaluate_geometric_spec,
+    verify_assembly_interface,
 )
 
 st.set_page_config(
@@ -77,13 +82,70 @@ def render_fit_chart(res):
     return fig
 
 
+def render_bonus_chart(res, current_size: float):
+    """Render Plotly line chart of allowable geometric tolerance vs manufactured size under MMR."""
+    fig = go.Figure()
+
+    # Build points from minimum to maximum size
+    d_min = min(res.mms, res.lms)
+    d_max = max(res.mms, res.lms)
+
+    points_x = [d_min, d_max]
+    if res.spec.feature_type == "arbre":
+        # Shaft: at d_max (MMS), tol = t0; at d_min (LMS), tol = t0 + IT
+        points_y = [res.spec.base_tolerance + res.max_bonus, res.spec.base_tolerance] if res.spec.mmr else [res.spec.base_tolerance, res.spec.base_tolerance]
+    else:
+        # Hole: at d_min (MMS), tol = t0; at d_max (LMS), tol = t0 + IT
+        points_y = [res.spec.base_tolerance, res.spec.base_tolerance + res.max_bonus] if res.spec.mmr else [res.spec.base_tolerance, res.spec.base_tolerance]
+
+    # Allowance line
+    fig.add_trace(go.Scatter(
+        x=points_x,
+        y=points_y,
+        mode="lines+markers",
+        name="Tolérance admissible",
+        line=dict(color="#0284c7", width=3),
+        marker=dict(size=8, color="#0284c7"),
+    ))
+
+    # Base tolerance reference line
+    fig.add_hline(
+        y=res.spec.base_tolerance,
+        line_dash="dot",
+        line_color="#94a3b8",
+        annotation_text=f"Tolérance de base t₀ = {res.spec.base_tolerance:.3f} mm",
+        annotation_position="bottom right",
+    )
+
+    # Current working point
+    fig.add_trace(go.Scatter(
+        x=[current_size],
+        y=[res.total_geometric_tolerance],
+        mode="markers",
+        name="Dimension usinée actuelle",
+        marker=dict(size=14, color="#ef4444", symbol="star"),
+        hovertemplate=f"Cote actuelle : {current_size:.3f} mm<br>Tolérance autorisée : {res.total_geometric_tolerance:.3f} mm<extra></extra>",
+    ))
+
+    fig.update_layout(
+        title=f"Diagramme de Bonus Ⓜ : Tolérance admissible selon la cote réelle ({res.spec.feature_type})",
+        xaxis_title="Cote réelle usinée (mm)",
+        yaxis_title="Tolérance géométrique autorisée (mm)",
+        height=380,
+        margin=dict(l=40, r=40, t=50, b=40),
+        plot_bgcolor="#f8fafc",
+    )
+    return fig
+
+
 def main() -> None:
     st.title("📋 Référentiel des Standards ISO")
-    st.caption("Ajustements ISO 286-1/2 et Tolérances générales ISO 2768-1")
+    st.caption("Ajustements ISO 286-1/2, Tolérances générales ISO 2768-1 & Tolérancement Géométrique ISO GPS (Ⓜ)")
 
-    tab_fits, tab_general = st.tabs([
+    tab_fits, tab_general, tab_gps = st.tabs([
         "🔧 Ajustements ISO 286 (Alésage / Arbre)",
         "📐 Tolérances Générales ISO 2768-1",
+        "🎯 Tolérancement Géométrique ISO GPS (Ⓜ)",
     ])
 
     # ==========================================
@@ -237,6 +299,181 @@ def main() -> None:
         Elle préconise l'utilisation d'une **spécification par profil de surface généralisé** rattaché à un système de références spécifié dans le cartouche (ex: `Tolérancement général : ISO 22081 | ⌒ 0.5 | A | B | C`).  
         Dans vos chaînes de cotes 1D, un défaut de profil ou de localisation se projette vectoriellement sur l'axe fonctionnel comme une contribution symétrique $\pm IT/2$.
         """)
+
+    # ==========================================
+    # TAB 3: ISO GPS GEOMETRIC TOLERANCES & MMR Ⓜ
+    # ==========================================
+    with tab_gps:
+        st.subheader("🎯 Spécifications Géométriques ISO GPS & Exigence du Maximum de Matière (MMR Ⓜ)")
+        st.markdown(
+            "Conforme aux normes **ISO 2692**, **ISO 1101** et **ASME Y14.5**. "
+            "Le modificateur **Ⓜ (Maximum Material Requirement)** autorise l'accroissement de la tolérance "
+            "géométrique lorsque la dimension effective de la pièce s'éloigne de son état au maximum de matière ($MMS$)."
+        )
+
+        st.markdown("### 1. Simulateur de Spécification Géométrique & Bonus Ⓜ")
+
+        col_gps_left, col_gps_right = st.columns([1, 1])
+
+        with col_gps_left:
+            feature_kind = st.radio(
+                "Type d'élément tolérancé",
+                options=["arbre", "alesage"],
+                format_func=lambda x: "Arbre / Pièce mâle (matière max = cote maxi)" if x == "arbre" else "Alésage / Pièce femelle (matière max = cote mini)",
+                horizontal=True,
+                key="gps_feature_kind",
+            )
+
+            col_dim1, col_dim2 = st.columns(2)
+            with col_dim1:
+                gps_nominal = st.number_input(
+                    "Diamètre nominal (mm)",
+                    min_value=0.5,
+                    max_value=500.0,
+                    value=20.0,
+                    step=1.0,
+                    key="gps_nominal",
+                )
+            with col_dim2:
+                gps_tol_type = st.selectbox(
+                    "Tolérance géométrique",
+                    options=["localisation", "perpendicularite", "parallelisme", "coaxialite", "battement", "symetrie"],
+                    format_func=lambda x: {
+                        "localisation": "⌖ Localisation",
+                        "perpendicularite": "⟂ Perpendicularité",
+                        "parallelisme": "∥ Parallélisme",
+                        "coaxialite": "◎ Coaxialité",
+                        "battement": "↗ Battement circulaire",
+                        "symetrie": "⌯ Symétrie",
+                    }[x],
+                    key="gps_tol_type",
+                )
+
+            use_iso_symbol = st.checkbox("Définir les écarts dimensionnels via un symbole ISO 286", value=True, key="gps_use_iso")
+            if use_iso_symbol:
+                available_syms = symbols["shafts"] if feature_kind == "arbre" else symbols["holes"]
+                default_sym = "h7" if feature_kind == "arbre" else "H7"
+                sym_idx = available_syms.index(default_sym) if default_sym in available_syms else 0
+                chosen_sym = st.selectbox("Classe de tolérance ISO 286", options=available_syms, index=sym_idx, key="gps_chosen_sym")
+                calc_ei, calc_es = get_iso286_limits(gps_nominal, chosen_sym)
+                gps_es = calc_es
+                gps_ei = calc_ei
+                st.caption(f"Écarts calculés : **ES = {gps_es:+.4f} mm**, **EI = {gps_ei:+.4f} mm** (IT = {gps_es-gps_ei:.4f} mm)")
+            else:
+                col_e1, col_e2 = st.columns(2)
+                with col_e1:
+                    gps_es = st.number_input("Écart Supérieur ES (mm)", value=0.000, step=0.005, format="%.4f", key="gps_es_manual")
+                with col_e2:
+                    gps_ei = st.number_input("Écart Inférieur EI (mm)", value=-0.021 if feature_kind == "arbre" else 0.000, step=0.005, format="%.4f", key="gps_ei_manual")
+
+            col_t1, col_t2 = st.columns(2)
+            with col_t1:
+                base_t0 = st.number_input(
+                    "Tolérance de base t₀ (mm)",
+                    min_value=0.001,
+                    max_value=2.0,
+                    value=0.050,
+                    step=0.010,
+                    format="%.3f",
+                    key="gps_base_t0",
+                    help="Tolérance géométrique spécifiée sur le dessin au pire cas matière (MMS)",
+                )
+            with col_t2:
+                enable_mmr = st.checkbox("Modificateur Ⓜ (MMR)", value=True, key="gps_enable_mmr", help="Active l'exigence du maximum de matière (ISO 2692)")
+
+            spec = GeometricSpec(
+                name=f"{gps_tol_type.capitalize()} Ø{gps_nominal}",
+                feature_type=feature_kind,  # type: ignore
+                tolerance_type=gps_tol_type,  # type: ignore
+                nominal_size=gps_nominal,
+                es=gps_es,
+                ei=gps_ei,
+                base_tolerance=base_t0,
+                mmr=enable_mmr,
+            )
+
+            # Manufactured size slider
+            min_size = min(gps_nominal + gps_ei, gps_nominal + gps_es)
+            max_size = max(gps_nominal + gps_ei, gps_nominal + gps_es)
+            default_slider = (min_size + max_size) / 2.0
+
+            actual_size_input = st.slider(
+                "Dimension réelle usinée de la pièce (mm)",
+                min_value=float(round(min_size, 4)),
+                max_value=float(round(max_size, 4)),
+                value=float(round(default_slider, 4)),
+                step=0.001,
+                format="%.3f mm",
+                key="gps_actual_slider",
+            )
+
+        with col_gps_right:
+            eval_res = evaluate_geometric_spec(spec, actual_size=actual_size_input)
+
+            # Metric cards
+            col_k1, col_k2, col_k3 = st.columns(3)
+            with col_k1:
+                st.metric("État Max Matière (MMS)", f"{eval_res.mms:.3f} mm")
+                st.metric("Bonus effectif", f"+{eval_res.actual_bonus:.3f} mm")
+            with col_k2:
+                st.metric("État Min Matière (LMS)", f"{eval_res.lms:.3f} mm")
+                st.metric("Tolérance totale autorisée", f"{eval_res.total_geometric_tolerance:.3f} mm")
+            with col_k3:
+                st.metric("État Virtuel (Vc)", f"{eval_res.virtual_condition:.3f} mm")
+                st.metric("Bonus maximal possible", f"+{eval_res.max_bonus:.3f} mm")
+
+            st.info(eval_res.explanation)
+            st.plotly_chart(render_bonus_chart(eval_res, actual_size_input), use_container_width=True)
+
+        st.divider()
+
+        # ==========================================
+        # 2. VÉRIFICATION D'ASSEMBLABILITÉ D'INTERFACE
+        # ==========================================
+        st.markdown("### 2. Vérification d'Assemblabilité & État Virtuel ($V_c$)")
+        st.caption("Contrôle garanti 100% sans risque de collision entre alésage et arbre sous modificateurs Ⓜ (ISO 2692).")
+
+        col_ass_h, col_ass_s = st.columns(2)
+        with col_ass_h:
+            st.markdown("#### 🔵 Alésage Récepteur (Femelle)")
+            h_nom = st.number_input("Diamètre nominal Alésage (mm)", value=25.0, step=1.0, key="ass_h_nom")
+            col_he1, col_he2 = st.columns(2)
+            with col_he1:
+                h_es = st.number_input("ES Alésage (mm)", value=0.021, step=0.005, format="%.4f", key="ass_h_es")
+            with col_he2:
+                h_ei = st.number_input("EI Alésage (mm)", value=0.000, step=0.005, format="%.4f", key="ass_h_ei")
+            h_t0 = st.number_input("Tolérance géométrique Alésage t₀ (mm)", value=0.020, step=0.005, format="%.3f", key="ass_h_t0")
+            h_spec = GeometricSpec("Alésage", "alesage", "localisation", h_nom, h_es, h_ei, h_t0, mmr=True)
+
+        with col_ass_s:
+            st.markdown("#### 🟢 Arbre Inséré (Mâle)")
+            s_nom = st.number_input("Diamètre nominal Arbre (mm)", value=25.0, step=1.0, key="ass_s_nom")
+            col_se1, col_se2 = st.columns(2)
+            with col_se1:
+                s_es = st.number_input("es Arbre (mm)", value=-0.020, step=0.005, format="%.4f", key="ass_s_es")
+            with col_se2:
+                s_ei = st.number_input("ei Arbre (mm)", value=-0.041, step=0.005, format="%.4f", key="ass_s_ei")
+            s_t0 = st.number_input("Tolérance géométrique Arbre t₀ (mm)", value=0.020, step=0.005, format="%.3f", key="ass_s_t0")
+            s_spec = GeometricSpec("Arbre", "arbre", "localisation", s_nom, s_es, s_ei, s_t0, mmr=True)
+
+        try:
+            ass_res = verify_assembly_interface(h_spec, s_spec)
+            if ass_res.is_assemblable:
+                st.success(
+                    f"### {ass_res.verdict}\n\n"
+                    f"- **État virtuel Alésage ($V_{{c,\\text{{alésage}}}} = D_{{\\min}} - t_{{0,\\text{{alésage}}}}$)** : `{ass_res.hole_vc:.4f} mm`\n"
+                    f"- **État virtuel Arbre ($V_{{c,\\text{{arbre}}}} = d_{{\\max}} + t_{{0,\\text{{arbre}}}}$)** : `{ass_res.shaft_vc:.4f} mm`\n"
+                    f"- **Jeu résiduel minimal garanti** : `{ass_res.guaranteed_min_clearance:+.4f} mm`"
+                )
+            else:
+                st.error(
+                    f"### {ass_res.verdict}\n\n"
+                    f"- **État virtuel Alésage ($V_{{c,\\text{{alésage}}}}$)** : `{ass_res.hole_vc:.4f} mm`\n"
+                    f"- **État virtuel Arbre ($V_{{c,\\text{{arbre}}}}$)** : `{ass_res.shaft_vc:.4f} mm`\n"
+                    f"- **Interférence prévisible au pire cas** : `{-ass_res.guaranteed_min_clearance:.4f} mm`"
+                )
+        except Exception as err:
+            st.error(f"Erreur de calcul d'assemblage : {err}")
 
     # --- Global Disclaimer ---
     st.divider()

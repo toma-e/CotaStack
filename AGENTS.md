@@ -10,6 +10,7 @@ CotaStack/
 │   ├── models.py             # Item, ChainResult dataclasses
 │   ├── calculator.py         # ChainCalculator: WC, RSS, Pareto, Compliance
 │   ├── iso_standards.py      # ISO 286-1/2, ISO 2768-1 lookup & fit calculations
+│   ├── geometric_tolerances.py# ISO GPS tolerances, MMR Ⓜ bonus, virtual condition Vc
 │   ├── thermal.py            # Differential thermal expansion (alpha, delta_T, J(T))
 │   ├── monte_carlo.py        # Stochastic simulation engine (100k runs, distributions, PPM)
 │   ├── tolerance_synthesis.py# Inverse tolerance allocation (cost, proportional, ISO)
@@ -18,11 +19,12 @@ CotaStack/
 ├── app.py                    # Streamlit entry point (multipage)
 ├── pages/                    # Streamlit pages
 │   ├── 01_Calculateur.py     # 1D tolerance chain calculator, thermal & Monte Carlo tabs
-│   ├── 02_Standards_ISO.py   # ISO 286 fits and ISO 2768 tolerances explorer
+│   ├── 02_Standards_ISO.py   # ISO 286 fits, ISO 2768 & ISO GPS Ⓜ explorer
 │   └── 03_Rapports.py        # Official A4 PDF reports, CSV and Markdown exports
 ├── tests/                    # pytest suite (100% backend coverage target)
 │   ├── test_calculator.py    # Item and ChainCalculator tests
 │   ├── test_iso_standards.py # ISO 286 and 2768-1 tests
+│   ├── test_geometric_tolerances.py # ISO GPS & MMR tests
 │   ├── test_thermal.py       # Thermal expansion tests
 │   ├── test_monte_carlo.py   # Monte Carlo simulation tests
 │   ├── test_tolerance_synthesis.py # Inverse allocation tests

@@ -21,6 +21,7 @@ from backend.thermal import (
 )
 from backend.monte_carlo import run_monte_carlo
 from backend.tolerance_synthesis import allocate_tolerances
+from backend.geometric_tolerances import GeometricSpec, evaluate_geometric_spec
 from backend.project_io import serialize_project, deserialize_project
 from backend.report_generator import generate_pdf_report
 
@@ -219,9 +220,13 @@ def main():
             st.session_state.items_df = pd.DataFrame([create_empty_item()])
             st.rerun()
 
-    # --- Assistant injection ISO 286 / 2768 ---
-    with st.expander("🔧 Assistant d'injection de tolérances normées (ISO 286 / ISO 2768-1)", expanded=False):
-        tab_iso286, tab_iso2768 = st.tabs(["Ajustement ISO 286 (H7, g6, etc.)", "Tolérance générale ISO 2768-1 (f, m, c, v)"])
+    # --- Assistant injection ISO 286 / 2768 / GPS ---
+    with st.expander("🔧 Assistant d'injection de tolérances normées (ISO 286 / ISO 2768-1 / ISO GPS Ⓜ)", expanded=False):
+        tab_iso286, tab_iso2768, tab_gps = st.tabs([
+            "Ajustement ISO 286 (H7, g6, etc.)",
+            "Tolérance générale ISO 2768-1 (f, m, c, v)",
+            "Tolérance géométrique 1D (ISO GPS Ⓜ)",
+        ])
 
         with tab_iso286:
             col_a1, col_a2, col_a3, col_a4, col_a5, col_a6 = st.columns([2, 1, 1.2, 1.3, 1.5, 1.3])
@@ -292,6 +297,66 @@ def main():
                     else:
                         st.session_state.items_df = pd.concat([cur_df, pd.DataFrame([new_row])], ignore_index=True)
                     st.success(f"Cote injectée avec ±{tol:.2f} mm")
+                    st.rerun()
+
+        with tab_gps:
+            col_c1, col_c2, col_c3, col_c4, col_c5 = st.columns([2, 1, 1.2, 1.2, 1.4])
+            with col_c1:
+                gps_name = st.text_input("Repère", value="Défaut localisation", key="gps_name_chain")
+            with col_c2:
+                gps_orient = st.selectbox("Sens", options=["+", "-"], key="gps_orient_chain")
+            with col_c3:
+                gps_type = st.selectbox("Élément", options=["arbre", "alesage"], format_func=lambda x: "Arbre" if x == "arbre" else "Alésage", key="gps_kind_chain")
+            with col_c4:
+                gps_nom = st.number_input("Nominal (mm)", min_value=0.5, max_value=500.0, value=20.0, step=1.0, key="gps_nom_chain")
+            with col_c5:
+                gps_t0 = st.number_input("Tolérance t₀ (mm)", min_value=0.001, max_value=2.0, value=0.040, step=0.010, format="%.3f", key="gps_t0_chain")
+
+            col_sub1, col_sub2, col_sub3 = st.columns([2, 2, 1.2])
+            with col_sub1:
+                gps_mmr = st.checkbox("Exigence Maximum Matière Ⓜ", value=True, key="gps_mmr_chain")
+            with col_sub2:
+                gps_eval_mode = st.radio(
+                    "Évaluation 1D",
+                    options=["MMS (Pire cas sans bonus)", "LMS (Bonus maximal)"],
+                    horizontal=True,
+                    key="gps_eval_chain",
+                )
+            with col_sub3:
+                st.write("")
+                if st.button("➕ Injecter", use_container_width=True, key="btn_inject_gps"):
+                    ei_std, es_std = get_iso286_limits(gps_nom, "h7" if gps_type == "arbre" else "H7")
+                    spec = GeometricSpec(
+                        name=gps_name,
+                        feature_type=gps_type,  # type: ignore
+                        tolerance_type="localisation",
+                        nominal_size=gps_nom,
+                        es=es_std,
+                        ei=ei_std,
+                        base_tolerance=gps_t0,
+                        mmr=gps_mmr,
+                    )
+                    eval_size = (gps_nom + ei_std) if (gps_eval_mode.startswith("LMS") and gps_type == "arbre") else (
+                        (gps_nom + es_std) if (gps_eval_mode.startswith("LMS") and gps_type == "alesage") else None
+                    )
+                    g_res = evaluate_geometric_spec(spec, actual_size=eval_size)
+                    half_t = round(g_res.total_geometric_tolerance / 2.0, 5)
+                    mod_str = " Ⓜ" if gps_mmr else ""
+                    new_row = {
+                        "Repère": f"{gps_name} (t={g_res.total_geometric_tolerance:.3f}{mod_str})",
+                        "Orientation": gps_orient,
+                        "Nominal (mm)": 0.0,
+                        "ES (mm)": half_t,
+                        "EI (mm)": -half_t,
+                        "IT (mm)": g_res.total_geometric_tolerance,
+                        "Matériau": "Acier (standard)",
+                    }
+                    cur_df = st.session_state.items_df
+                    if len(cur_df) == 1 and not str(cur_df.iloc[0]["Repère"]).strip():
+                        st.session_state.items_df = pd.DataFrame([new_row])
+                    else:
+                        st.session_state.items_df = pd.concat([cur_df, pd.DataFrame([new_row])], ignore_index=True)
+                    st.success(f"Tolérance géométrique injectée : ±{half_t:.3f} mm (t_total = {g_res.total_geometric_tolerance:.3f} mm)")
                     st.rerun()
 
     # --- Main Data Editor ---
