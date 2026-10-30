@@ -1,270 +1,51 @@
 <!DOCTYPE html>
-<html lang="fr" class="scroll-smooth">
+<html lang="fr">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CotaStack — Calcul & Analyse de chaînes de cotes 1D (ISO GPS)</title>
-  <meta name="description" content="Solution web d'ingénierie mécanique pour le calcul de tolérancement 1D au pire des cas (WC) et statistique (RSS), conforme aux normes ISO 286 et ISO 2768-1.">
+  <title>CotaStack — Redirection vers l'application</title>
+  
+  <!-- Redirection immédiate par balise meta -->
+  <meta http-equiv="refresh" content="0; url=https://cotastack.streamlit.app/">
+  <link rel="canonical" href="https://cotastack.streamlit.app/">
 
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-
+  <!-- Redirection immédiate par JavaScript -->
   <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            brand: {
-              50: '#f0f9ff',
-              100: '#e0f2fe',
-              500: '#0ea5e9',
-              600: '#0284c7',
-              700: '#0369a1',
-              800: '#075985',
-              900: '#0c4a6e',
-            }
-          }
-        }
-      }
-    }
+    window.location.replace("https://cotastack.streamlit.app/");
   </script>
+
+  <!-- Tailwind CSS pour un affichage de transition élégant -->
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-slate-50 text-slate-800 font-sans antialiased selection:bg-sky-100 selection:text-sky-900">
+<body class="bg-slate-50 text-slate-800 flex items-center justify-center min-h-screen p-4 font-sans antialiased">
 
-  <!-- ================= Navigation ================= -->
-  <header class="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-slate-200">
-    <div class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <span class="w-8 h-8 rounded-lg bg-sky-600 flex items-center justify-center text-white font-bold text-lg shadow-sm">
-          📐
-        </span>
-        <span class="font-bold text-xl tracking-tight text-slate-900">CotaStack</span>
-        <span class="hidden sm:inline-block text-xs font-semibold uppercase tracking-wider text-sky-800 bg-sky-50 border border-sky-200 px-2 py-0.5 rounded">
-          Ingénierie ISO
-        </span>
-      </div>
-      <nav class="flex items-center gap-6">
-        <a href="#methodes" class="text-sm font-medium text-slate-600 hover:text-slate-900 transition">Méthodes de calcul</a>
-        <a href="#normes" class="text-sm font-medium text-slate-600 hover:text-slate-900 transition">Normes ISO</a>
-        <a href="#demarrage" class="text-sm font-medium text-slate-600 hover:text-slate-900 transition">Démarrage rapide</a>
-        <a href="https://github.com/toma-e/CotaStack" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 px-3.5 py-1.5 rounded-lg transition gap-2">
-          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
-          GitHub
-        </a>
-      </nav>
+  <div class="max-w-md w-full bg-white rounded-2xl border border-slate-200 shadow-xl p-8 text-center">
+    <div class="w-16 h-16 rounded-2xl bg-sky-600 text-white flex items-center justify-center text-3xl mx-auto mb-5 shadow-sm">
+      📐
     </div>
-  </header>
 
-  <main>
-    <!-- ================= Hero Section ================= -->
-    <section class="pt-14 pb-16 px-4 max-w-5xl mx-auto text-center">
-      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sky-50 border border-sky-200 text-sky-800 text-xs font-semibold mb-6">
-        <span class="w-2 h-2 rounded-full bg-sky-600"></span>
-        Solution open source d'analyse mécanique & cotation fonctionnelle
-      </div>
+    <h1 class="text-2xl font-bold text-slate-900 mb-2">CotaStack</h1>
+    <p class="text-slate-600 text-sm mb-6">
+      Ouverture en cours du calculateur de chaînes de cotes 1D...
+    </p>
 
-      <h1 class="text-4xl sm:text-5xl font-extrabold text-slate-900 tracking-tight leading-tight mb-5">
-        Dimensionnement et analyse des <span class="text-sky-600">chaînes de cotes 1D</span>
-      </h1>
-
-      <p class="text-lg sm:text-xl text-slate-600 max-w-3xl mx-auto mb-8 leading-relaxed">
-        Sécurisez vos empilements de tolérances par calcul vectoriel au pire des cas (Worst-Case) et statistique quadratique (RSS à 3&sigma;). Exploitez directement les référentiels ISO 286 et ISO 2768-1.
-      </p>
-
-      <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
-        <a href="#demarrage" class="w-full sm:w-auto inline-flex items-center justify-center text-sm font-semibold text-white bg-sky-600 hover:bg-sky-700 px-6 py-3 rounded-xl transition shadow-sm gap-2">
-          <span>🚀 Guide d'exécution de l'application</span>
-        </a>
-        <a href="https://github.com/toma-e/CotaStack" target="_blank" rel="noopener noreferrer" class="w-full sm:w-auto inline-flex items-center justify-center text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 px-6 py-3 rounded-xl transition shadow-sm gap-2">
-          <span>Consulter le code source</span>
-        </a>
-      </div>
-
-      <!-- Métriques d'ingénierie -->
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl mx-auto mt-6 text-left">
-        <div class="p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
-          <div class="text-xs font-semibold uppercase text-slate-500">Approche déterministe</div>
-          <div class="text-lg font-bold text-slate-900 mt-1">Pire des cas (WC)</div>
-          <div class="text-xs text-slate-500 mt-0.5">J_min / J_max arithmétique</div>
-        </div>
-        <div class="p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
-          <div class="text-xs font-semibold uppercase text-slate-500">Approche statistique</div>
-          <div class="text-lg font-bold text-slate-900 mt-1">RSS (3&sigma;)</div>
-          <div class="text-xs text-slate-500 mt-0.5">Somme quadratique des IT</div>
-        </div>
-        <div class="p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
-          <div class="text-xs font-semibold uppercase text-slate-500">Ajustements ISO</div>
-          <div class="text-lg font-bold text-slate-900 mt-1">ISO 286-1/2</div>
-          <div class="text-xs text-slate-500 mt-0.5">Alésages H7 & Arbres g6, etc.</div>
-        </div>
-        <div class="p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
-          <div class="text-xs font-semibold uppercase text-slate-500">Tolérances générales</div>
-          <div class="text-lg font-bold text-slate-900 mt-1">ISO 2768-1</div>
-          <div class="text-xs text-slate-500 mt-0.5">Classes f, m, c, v</div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ================= Méthodes de calcul ================= -->
-    <section id="methodes" class="py-16 bg-white border-y border-slate-200">
-      <div class="max-w-5xl mx-auto px-4">
-        <div class="text-center max-w-2xl mx-auto mb-12">
-          <h2 class="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
-            Méthodes rigoureuses de cotation fonctionnelle
-          </h2>
-          <p class="text-slate-600 mt-2 text-sm sm:text-base">
-            Éliminez les approximations et erreurs vectorielles de signe dans vos boucles d'assemblage.
-          </p>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <!-- Carte WC -->
-          <div class="p-6 rounded-2xl border border-slate-200 bg-slate-50/50">
-            <div class="flex items-center gap-3 mb-3">
-              <span class="w-7 h-7 rounded bg-sky-600 text-white flex items-center justify-center font-bold text-sm">1</span>
-              <h3 class="font-bold text-slate-900 text-lg">Pire des cas (Worst-Case)</h3>
-            </div>
-            <p class="text-sm text-slate-600 leading-relaxed mb-4">
-              Cumul arithmétique absolu des tolérances. Garantit l'interchangeabilité totale et le respect des jeux fonctionnels pour 100 % des composants, même dans les configurations géométriques les plus défavorables.
-            </p>
-            <div class="bg-white p-3 rounded-lg border border-slate-200 text-xs font-mono text-slate-700">
-              IT_total = &sum; IT_i<br>
-              J_min,WC = J_nom + &sum; (&plusmn; ei/es)
-            </div>
-          </div>
-
-          <!-- Carte RSS -->
-          <div class="p-6 rounded-2xl border border-slate-200 bg-slate-50/50">
-            <div class="flex items-center gap-3 mb-3">
-              <span class="w-7 h-7 rounded bg-sky-600 text-white flex items-center justify-center font-bold text-sm">2</span>
-              <h3 class="font-bold text-slate-900 text-lg">Statistique quadratique (RSS à 3&sigma;)</h3>
-            </div>
-            <p class="text-sm text-slate-600 leading-relaxed mb-4">
-              Fondée sur la loi normale et le théorème central limite. Permet d'élargir les tolérances individuelles d'usinage pour réduire les coûts de fabrication tout en maintenant un risque statistique maîtrisé (&lt; 0.27 % hors bornes).
-            </p>
-            <div class="bg-white p-3 rounded-lg border border-slate-200 text-xs font-mono text-slate-700">
-              IT_total,RSS = &radic;(&sum; IT_i&sup2;)<br>
-              J_min,RSS = J_moy - IT_total,RSS / 2
-            </div>
-          </div>
-
-          <!-- Carte Pareto -->
-          <div class="p-6 rounded-2xl border border-slate-200 bg-slate-50/50">
-            <div class="flex items-center gap-3 mb-3">
-              <span class="w-7 h-7 rounded bg-sky-600 text-white flex items-center justify-center font-bold text-sm">3</span>
-              <h3 class="font-bold text-slate-900 text-lg">Analyse de contribution de Pareto</h3>
-            </div>
-            <p class="text-sm text-slate-600 leading-relaxed mb-4">
-              Identifie immédiatement les maillons pénalisants dont la variance domine l'assemblage ($C_i = \frac{IT_i^2}{\sum IT_k^2} \times 100$). Permet de focaliser l'effort de tolérancement là où l'impact géométrique est le plus fort.
-            </p>
-          </div>
-
-          <!-- Carte Conformité -->
-          <div class="p-6 rounded-2xl border border-slate-200 bg-slate-50/50">
-            <div class="flex items-center gap-3 mb-3">
-              <span class="w-7 h-7 rounded bg-sky-600 text-white flex items-center justify-center font-bold text-sm">4</span>
-              <h3 class="font-bold text-slate-900 text-lg">Évaluation de conformité Go / No-Go</h3>
-            </div>
-            <p class="text-sm text-slate-600 leading-relaxed mb-4">
-              Confrontation directe aux jeux cibles minimal et maximal ($J_{\min,\text{cible}}$, $J_{\max,\text{cible}}$) avec calcul automatique des marges de sécurité pour la validation de vos revues de conception.
-            </p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ================= Normes ISO ================= -->
-    <section id="normes" class="py-16 px-4 max-w-5xl mx-auto">
-      <div class="text-center max-w-2xl mx-auto mb-12">
-        <h2 class="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
-          Référentiels normatifs intégrés (ISO GPS)
-        </h2>
-        <p class="text-slate-600 mt-2 text-sm sm:text-base">
-          Accès direct aux abaques de tolérances sans consultation de tables manuelles.
-        </p>
-      </div>
-
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div class="bg-white p-7 rounded-2xl border border-slate-200 shadow-sm">
-          <h3 class="text-lg font-bold text-slate-900 mb-2">🔧 Système d'ajustements ISO 286</h3>
-          <p class="text-sm text-slate-600 leading-relaxed mb-4">
-            Lookup automatique des écarts limites ($ES, EI, es, ei$) par paliers de diamètre nominal jusqu'à 500 mm. Détermination immédiate de la nature de la liaison cylindrique :
-          </p>
-          <ul class="text-xs space-y-2 text-slate-600 font-medium">
-            <li class="flex items-center gap-2"><span class="text-emerald-600 font-bold">✓</span> <strong>Ajustement avec jeu</strong> (ex: H7/g6, H8/f7, D10/h6)</li>
-            <li class="flex items-center gap-2"><span class="text-amber-600 font-bold">✓</span> <strong>Ajustement incertain / transition</strong> (ex: H7/k6, H7/m6, H7/js6)</li>
-            <li class="flex items-center gap-2"><span class="text-rose-600 font-bold">✓</span> <strong>Ajustement avec serrage</strong> (ex: H7/p6, P9/h6)</li>
-          </ul>
-        </div>
-
-        <div class="bg-white p-7 rounded-2xl border border-slate-200 shadow-sm">
-          <h3 class="text-lg font-bold text-slate-900 mb-2">📐 Tolérances générales ISO 2768-1 & ISO 22081</h3>
-          <p class="text-sm text-slate-600 leading-relaxed mb-4">
-            Tables des tolérances générales d'usinage par classes de précision (fine <em>f</em>, moyenne <em>m</em>, grosse <em>c</em>, très grosse <em>v</em>) pour les dimensions linéaires, chanfreins et angles.
-          </p>
-          <div class="p-3 bg-slate-50 rounded-lg border border-slate-200 text-xs text-slate-600">
-            <strong>Veille normative :</strong> Transition didactique vers la norme <strong>ISO 22081:2021</strong> pour le tolérancement géométrique généralisé par profil de surface avec système de référence.
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ================= Démarrage rapide ================= -->
-    <section id="demarrage" class="py-16 bg-slate-100/70 border-t border-slate-200">
-      <div class="max-w-4xl mx-auto px-4">
-        <div class="text-center max-w-xl mx-auto mb-10">
-          <h2 class="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
-            Démarrage et utilisation
-          </h2>
-          <p class="text-slate-600 mt-2 text-sm sm:text-base">
-            CotaStack est une application Python / Streamlit légère, autonome et respectueuse de la confidentialité de vos données de conception.
-          </p>
-        </div>
-
-        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
-          <h3 class="font-bold text-slate-900 text-base mb-3 flex items-center gap-2">
-            <span>💻</span> Exécution en local (Python &ge; 3.11)
-          </h3>
-          <div class="bg-slate-900 text-slate-100 p-4 rounded-xl text-xs sm:text-sm font-mono overflow-x-auto leading-relaxed mb-6">
-            <span class="text-slate-400"># 1. Cloner le dépôt</span><br>
-            git clone https://github.com/toma-e/CotaStack.git<br>
-            cd CotaStack<br><br>
-            <span class="text-slate-400"># 2. Créer l'environnement virtuel et installer les dépendances</span><br>
-            uv venv && uv pip install -r requirements.txt<br><br>
-            <span class="text-slate-400"># 3. Lancer l'application web Streamlit</span><br>
-            streamlit run app.py
-          </div>
-
-          <h3 class="font-bold text-slate-900 text-base mb-2 flex items-center gap-2">
-            <span>🧪</span> Suite de tests automatisés (100% couverture backend)
-          </h3>
-          <div class="bg-slate-900 text-slate-100 p-3 rounded-xl text-xs font-mono overflow-x-auto mb-4">
-            pytest --cov=backend --cov-report=term-missing
-          </div>
-
-          <p class="text-xs text-slate-500">
-            L'application s'ouvre automatiquement dans votre navigateur par défaut à l'adresse <code class="text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded font-mono">http://localhost:8501</code>.
-          </p>
-        </div>
-      </div>
-    </section>
-  </main>
-
-  <!-- ================= Footer ================= -->
-  <footer class="bg-slate-900 text-slate-400 text-xs py-10 border-t border-slate-800">
-    <div class="max-w-5xl mx-auto px-4 flex flex-col sm:flex-row justify-between items-center gap-4">
-      <div class="flex items-center gap-2">
-        <span class="w-5 h-5 rounded bg-sky-600 text-white font-bold flex items-center justify-center text-xs">📐</span>
-        <span class="font-bold text-white text-sm">CotaStack</span>
-        <span class="text-slate-500">— Outil d'ingénierie mécanique pour chaînes de cotes 1D.</span>
-      </div>
-
-      <div class="text-center sm:text-right space-y-1">
-        <p>Projet open source distribué sous licence MIT.</p>
-        <p><a href="https://github.com/toma-e/CotaStack" target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:underline">Dépôt GitHub toma-e/CotaStack</a></p>
-      </div>
+    <!-- Animation de chargement -->
+    <div class="flex justify-center items-center gap-1.5 mb-8">
+      <span class="w-2.5 h-2.5 rounded-full bg-sky-600 animate-bounce" style="animation-delay: 0s;"></span>
+      <span class="w-2.5 h-2.5 rounded-full bg-sky-600 animate-bounce" style="animation-delay: 0.15s;"></span>
+      <span class="w-2.5 h-2.5 rounded-full bg-sky-600 animate-bounce" style="animation-delay: 0.3s;"></span>
     </div>
-  </footer>
+
+    <a href="https://cotastack.streamlit.app/" 
+       class="inline-flex items-center justify-center w-full py-3 px-6 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-semibold text-sm transition shadow-sm gap-2">
+      <span>Ouvrir l'application maintenant</span>
+      <span>&rarr;</span>
+    </a>
+
+    <p class="text-xs text-slate-400 mt-5">
+      Si la redirection automatique ne s'effectue pas, cliquez sur le bouton ci-dessus.
+    </p>
+  </div>
 
 </body>
 </html>
