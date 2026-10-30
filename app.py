@@ -24,6 +24,7 @@ def main() -> None:
         st.page_link("pages/01_Calculateur.py", label="🧮 Calculateur", icon="🧮")
         st.page_link("pages/02_Standards_ISO.py", label="📋 Standards ISO", icon="📋")
         st.page_link("pages/03_Rapports.py", label="📄 Rapports & Export", icon="📄")
+        st.page_link("pages/04_Multi_Chaines.py", label="🏢 Multi-Chaînes Système", icon="🏢")
 
         st.divider()
         st.markdown("**Modules de calcul actifs**")
@@ -33,6 +34,7 @@ def main() -> None:
         st.checkbox("Simulation Monte Carlo (PPM)", value=True, disabled=True)
         st.checkbox("Allocation inverse & Synthèse", value=True, disabled=True)
         st.checkbox("Tolérancement géométrique ISO GPS Ⓜ", value=True, disabled=True)
+        st.checkbox("Répertoire unifié multi-chaînes", value=True, disabled=True)
 
         st.divider()
         st.markdown("[Documentation](https://github.com/cotastack)")
@@ -44,6 +46,7 @@ def main() -> None:
 
     ### Fonctionnalités opérationnelles
     - ✅ **Calculateur interactif** : Saisie vectorielle des maillons avec recalcul temps réel Pire des Cas (WC) & Statistique (RSS).
+    - ✅ **Répertoire unifié multi-chaînes (Jalon 3.1)** : Définition unique des composants maîtres dans un catalogue partagé et propagation instantanée des modifications de tolérances sur toutes les chaînes d'assemblage du système. Matrice d'impacts croisés des pièces pivots.
     - ✅ **Tolérancement géométrique ISO GPS (MMR Ⓜ)** : Calcul des états MMS/LMS, calcul dynamique du **bonus dimensionnel Ⓜ** (ISO 2692 / ISO 1101 / ASME Y14.5), condition virtuelle d'assemblage $V_c$, simulateur d'interface alésage/arbre sans collision et injection 1D.
     - ✅ **Allocation inverse & Synthèse (Optionnel)** : Détermination automatique des tolérances optimales par composant à partir d'un jeu cible global (stratégies proportionnelle, coût d'usinage, degré ISO).
     - ✅ **Compensation thermique ($\Delta T$)** : Prise en compte des coefficients de dilatation $\alpha$ des matériaux (aciers, alu, inox, laiton, polymères POM/PEEK) et courbe continue $J(T)$ de $-40^\circ\text{C}$ à $+120^\circ\text{C}$.
@@ -62,11 +65,11 @@ def main() -> None:
 
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric("Statut", "🟢 Phases 1, 2, 3 & ISO GPS opérationnelles")
+        st.metric("Statut", "🟢 Phases 1, 2, 3 & Multi-Chaînes opérationnelles")
     with col2:
-        st.metric("Tests unitaires", "89/89 validés (100%)")
+        st.metric("Tests unitaires", "115/115 validés (100%)")
     with col3:
-        st.metric("Couverture backend", "100% sur 10 modules")
+        st.metric("Couverture backend", "100% sur 11 modules")
 
 
 if __name__ == "__main__":
