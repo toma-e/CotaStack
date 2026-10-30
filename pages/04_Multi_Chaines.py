@@ -1116,7 +1116,7 @@ def main() -> None:
                 "Pire des Cas [Min ; Max]": f"[{s.result.worst_case_minus:.3f} ; {s.result.worst_case_plus:.3f}] mm",
                 "Dispersion IT_WC": f"{s.result.worst_case_plus - s.result.worst_case_minus:.3f} mm",
                 "Limites Cibles": f"[{c.target_min} ; {c.target_max}]" if (c.target_min is not None or c.target_max is not None) else "Sans cible",
-                "Verdict": "🟢 Conforme" if s.wc_is_compliant else "🔴 Critique",
+                "Verdict Pire des Cas": s.wc_status_label,
                 "Pièces du Catalogue": ", ".join(set(c_parts)) if c_parts else "Cotes locales",
             })
 
