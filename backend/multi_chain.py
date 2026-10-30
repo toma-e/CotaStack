@@ -210,6 +210,34 @@ class MultiChainProject:
         chain.links[link_index].orientation = new_orient
         return new_orient
 
+    def move_link(self, chain_id: str, old_index: int, new_index: int) -> None:
+        """Move a link from old_index to new_index in the specified chain."""
+        chain = self.get_chain(chain_id)
+        n = len(chain.links)
+        if old_index < 0 or old_index >= n:
+            raise IndexError(f"old_index invalide : {old_index} (taille de la chaîne : {n})")
+        if new_index < 0 or new_index >= n:
+            raise IndexError(f"new_index invalide : {new_index} (taille de la chaîne : {n})")
+        if old_index == new_index:
+            return
+        link = chain.links.pop(old_index)
+        chain.links.insert(new_index, link)
+
+    def move_link_up(self, chain_id: str, index: int) -> bool:
+        """Move a link one position up (towards 0). Returns True if moved, False if already at top."""
+        if index <= 0:
+            return False
+        self.move_link(chain_id, index, index - 1)
+        return True
+
+    def move_link_down(self, chain_id: str, index: int) -> bool:
+        """Move a link one position down (towards end). Returns True if moved, False if already at bottom."""
+        chain = self.get_chain(chain_id)
+        if index >= len(chain.links) - 1:
+            return False
+        self.move_link(chain_id, index, index + 1)
+        return True
+
     def clear_all(self) -> None:
         """Reset the whole project repository to empty state (0 parts, 0 chains)."""
         self.parts.clear()

@@ -350,6 +350,44 @@ class TestMultiChainProject:
         with pytest.raises(ValueError, match="L'orientation doit être 1 ou -1"):
             project.set_link_orientation("JEU_AXIAL", 0, 2)  # type: ignore
 
+    def test_move_links(self, project: MultiChainProject):
+        chain = project.get_chain("JEU_AXIAL")
+        # JEU_AXIAL links initially: CARTER, ARBRE, ROULEMENT, ROULEMENT
+        initial_order = [l.part_id for l in chain.links]
+        assert initial_order == ["CARTER", "ARBRE", "ROULEMENT", "ROULEMENT"]
+
+        # Move CARTER (0) down to (1)
+        moved = project.move_link_down("JEU_AXIAL", 0)
+        assert moved is True
+        assert [l.part_id for l in chain.links] == ["ARBRE", "CARTER", "ROULEMENT", "ROULEMENT"]
+
+        # Move CARTER back up to (0)
+        moved_up = project.move_link_up("JEU_AXIAL", 1)
+        assert moved_up is True
+        assert [l.part_id for l in chain.links] == ["CARTER", "ARBRE", "ROULEMENT", "ROULEMENT"]
+
+        # Boundary checks: cannot move up at 0, cannot move down at len-1
+        assert project.move_link_up("JEU_AXIAL", 0) is False
+        assert project.move_link_down("JEU_AXIAL", len(chain.links) - 1) is False
+
+        # Move arbitrary: move CARTER (0) to position 2
+        project.move_link("JEU_AXIAL", 0, 2)
+        assert [l.part_id for l in chain.links] == ["ARBRE", "ROULEMENT", "CARTER", "ROULEMENT"]
+
+        # Move to same index (no-op)
+        project.move_link("JEU_AXIAL", 1, 1)
+        assert [l.part_id for l in chain.links] == ["ARBRE", "ROULEMENT", "CARTER", "ROULEMENT"]
+
+        # Invalid index checks
+        with pytest.raises(IndexError, match="old_index invalide"):
+            project.move_link("JEU_AXIAL", -1, 2)
+        with pytest.raises(IndexError, match="old_index invalide"):
+            project.move_link("JEU_AXIAL", 99, 2)
+        with pytest.raises(IndexError, match="new_index invalide"):
+            project.move_link("JEU_AXIAL", 0, -1)
+        with pytest.raises(IndexError, match="new_index invalide"):
+            project.move_link("JEU_AXIAL", 0, 99)
+
     def test_clear_all(self, project: MultiChainProject):
         assert len(project.parts) > 0
         assert len(project.chains) > 0

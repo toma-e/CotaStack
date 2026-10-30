@@ -907,7 +907,7 @@ def main() -> None:
                             rep_name = link.custom_name or f"Cote locale {idx+1}"
 
                         with st.container(border=True):
-                            c_r1, c_r2, c_r3, c_r4, c_r5 = st.columns([1.8, 1.0, 1.0, 1.4, 0.6])
+                            c_r1, c_r2, c_r3, c_r4, c_r5, c_r6 = st.columns([1.7, 0.9, 0.9, 1.2, 0.9, 0.5])
                             with c_r1:
                                 st.markdown(f"**#{idx+1} {rep_name}**")
                                 st.markdown(f"{source_badge}", unsafe_allow_html=True)
@@ -932,7 +932,18 @@ def main() -> None:
                                 st.markdown(f"`[{ei:+.3f} ; {es:+.3f}]`")
                                 st.caption(f"IT: {es-ei:.3f} mm")
                             with c_r5:
-                                st.caption("Action")
+                                st.caption("Ordre")
+                                col_up, col_dn = st.columns(2)
+                                with col_up:
+                                    if st.button("▲", key=f"up_link_{active_chain.id}_{idx}", disabled=(idx == 0), help="Monter le maillon d'un cran", use_container_width=True):
+                                        project.move_link_up(active_chain.id, idx)
+                                        st.rerun()
+                                with col_dn:
+                                    if st.button("▼", key=f"down_link_{active_chain.id}_{idx}", disabled=(idx == len(active_chain.links) - 1), help="Descendre le maillon d'un cran", use_container_width=True):
+                                        project.move_link_down(active_chain.id, idx)
+                                        st.rerun()
+                            with c_r6:
+                                st.caption("Suppr.")
                                 if st.button("🗑️", key=f"del_link_{active_chain.id}_{idx}", help=f"Retirer le maillon #{idx+1}"):
                                     project.remove_link_from_chain(active_chain.id, idx)
                                     st.rerun()
