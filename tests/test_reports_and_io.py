@@ -15,7 +15,7 @@ class TestProjectIO:
             Item(name="Carter", nominal=100.0, ei=-0.1, es=0.1, orientation=1, material="Aluminium (alliage 6000/7000)"),
             Item(name="Arbre", nominal=98.0, ei=-0.05, es=0.05, orientation=-1, material="Acier (standard)"),
         ]
-        meta = {"title": "Test Assembly", "author": "Thomas", "revision": "B"}
+        meta = {"title": "Test Assembly", "author": "Bureau d'Études", "revision": "B"}
         dists = {"Carter": "uniforme", "Arbre": "normale"}
 
         json_str = serialize_project(
