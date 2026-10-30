@@ -222,6 +222,43 @@ def main() -> None:
             st.toast("Exemple de démonstration rechargé !")
             st.rerun()
 
+    # Sauvegarde / Chargement de projet accessible en permanence (ouvert automatiquement si projet vide)
+    is_empty_project = (len(project.parts) == 0 and len(project.chains) == 0)
+    with st.expander("💾 Sauvegarder ou Charger un projet (.cotastack_multi.json)", expanded=is_empty_project):
+        col_io1, col_io2 = st.columns(2)
+        with col_io1:
+            st.markdown("##### 📂 Charger un projet existant")
+            up_file_top = st.file_uploader(
+                "Sélectionner un fichier JSON de projet (.cotastack_multi.json)",
+                type=["json"],
+                key="up_proj_top",
+                help="Charge un mécanisme complet sauvegardé avec son catalogue de pièces et ses chaînes de cotes.",
+            )
+            if up_file_top is not None:
+                try:
+                    raw_txt = up_file_top.read().decode("utf-8")
+                    loaded_proj = MultiChainProject.from_json(raw_txt)
+                    st.session_state.multi_project = loaded_proj
+                    st.success(f"Projet '{loaded_proj.name}' chargé avec succès ({len(loaded_proj.parts)} pièces, {len(loaded_proj.chains)} chaînes) !")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Erreur de lecture du fichier : {e}")
+
+        with col_io2:
+            st.markdown("##### 📥 Sauvegarder le projet actuel")
+            project_json = project.to_json()
+            st.download_button(
+                label="Télécharger le fichier projet (.cotastack_multi.json)",
+                data=project_json,
+                file_name=f"{project.name.lower().replace(' ', '_')}.cotastack_multi.json",
+                mime="application/json",
+                use_container_width=True,
+                key="btn_dl_top",
+                disabled=is_empty_project,
+            )
+            if is_empty_project:
+                st.caption("ℹ️ Le projet est actuellement vide. Vous pouvez charger un fichier JSON existant ci-contre ou créer vos pièces.")
+
     tab_catalog, tab_chains, tab_dashboard = st.tabs([
         "📦 Répertoire & Pièces Partagées",
         "🔗 Chaînes d'Assemblage du Système",
@@ -399,287 +436,286 @@ def main() -> None:
                         st.rerun()
                     except Exception as e:
                         st.error(f"Erreur : {e}")
-            return
-
-        # Top Bar: Select chain or Create new
-        col_c_sel, col_c_action = st.columns([2, 1])
-        with col_c_sel:
-            active_chain_id = st.selectbox(
-                "Sélectionner la chaîne d'assemblage à afficher :",
-                options=chain_keys,
-                format_func=lambda x: f"{project.chains[x].name} ({len(project.chains[x].links)} maillons)",
-                key="active_chain_select",
-            )
-        with col_c_action:
-            st.write("")
-            with st.expander("➕ Créer une autre chaîne", expanded=False):
-                new_c_id = st.text_input("ID Chaîne", key="new_c_id")
-                new_c_name = st.text_input("Nom de la chaîne", key="new_c_name")
-                col_tmin, col_tmax = st.columns(2)
-                with col_tmin:
-                    new_tmin = st.number_input("Cible Min (mm)", value=0.100, step=0.050, format="%.3f", key="new_tmin")
-                with col_tmax:
-                    new_tmax = st.number_input("Cible Max (mm)", value=0.800, step=0.050, format="%.3f", key="new_tmax")
-                if st.button("Créer la chaîne", type="primary", use_container_width=True, key="btn_create_chain"):
-                    try:
-                        new_chain = AssemblyChain(
-                            id=new_c_id.strip().upper(),
-                            name=new_c_name.strip(),
-                            target_min=new_tmin,
-                            target_max=new_tmax,
-                        )
-                        project.add_chain(new_chain)
-                        st.success(f"Chaîne '{new_chain.name}' créée avec succès !")
-                        st.rerun()
-                    except Exception as err:
-                        st.error(f"Erreur : {err}")
-
-        active_chain = project.get_chain(active_chain_id)
-
-        # Settings of Active Chain: Edit Limits, Name, Targets, or Delete Chain
-        with st.expander("⚙️ Modifier les limites cibles ou supprimer cette chaîne", expanded=False):
-            col_ed1, col_ed2 = st.columns([2, 1])
-            with col_ed1:
-                edit_chain_name = st.text_input("Nom de la chaîne", value=active_chain.name, key="edit_c_name")
-                edit_chain_desc = st.text_input("Description", value=active_chain.description, key="edit_c_desc")
-                col_ed_t1, col_ed_t2 = st.columns(2)
-                with col_ed_t1:
-                    edit_chain_tmin = st.number_input(
-                        "Cible minimale J_min (mm)",
-                        value=active_chain.target_min if active_chain.target_min is not None else 0.0,
-                        step=0.050,
-                        format="%.3f",
-                        key="edit_c_tmin",
-                    )
-                with col_ed_t2:
-                    edit_chain_tmax = st.number_input(
-                        "Cible maximale J_max (mm)",
-                        value=active_chain.target_max if active_chain.target_max is not None else 1.0,
-                        step=0.050,
-                        format="%.3f",
-                        key="edit_c_tmax",
-                    )
-                if st.button("💾 Mettre à jour les limites et le nom", type="primary", key="btn_update_chain_limits"):
-                    try:
-                        project.update_chain(
-                            active_chain.id,
-                            name=edit_chain_name,
-                            description=edit_chain_desc,
-                            target_min=edit_chain_tmin,
-                            target_max=edit_chain_tmax,
-                        )
-                        st.success("Limites de la chaîne mises à jour avec succès !")
-                        st.rerun()
-                    except Exception as err:
-                        st.error(f"Erreur : {err}")
-
-            with col_ed2:
-                st.markdown("#### Zone dangereuse")
-                st.caption("Supprime définitivement cette chaîne d'assemblage du projet.")
-                if st.button("🗑️ Supprimer cette chaîne", type="secondary", use_container_width=True, key="btn_delete_chain"):
-                    project.remove_chain(active_chain.id)
-                    st.warning("Chaîne d'assemblage supprimée.")
-                    st.rerun()
-
-        # Display active chain targets
-        col_t1, col_t2 = st.columns(2)
-        with col_t1:
-            t_min_str = f"{active_chain.target_min:.3f} mm" if active_chain.target_min is not None else "Non spécifié"
-            st.markdown(f"**Cible minimale ($J_{{\\min}}$)** : `{t_min_str}`")
-        with col_t2:
-            t_max_str = f"{active_chain.target_max:.3f} mm" if active_chain.target_max is not None else "Non spécifié"
-            st.markdown(f"**Cible maximale ($J_{{\\max}}$)** : `{t_max_str}`")
-
-        # Composition vectorielle des maillons avec suppression individuelle
-        st.markdown("#### Composition vectorielle de la chaîne")
-
-        if active_chain.links:
-            # Table header
-            c_num, c_rep, c_sens, c_src, c_nom, c_tol, c_it, c_del = st.columns([0.6, 2.2, 0.8, 1.8, 1.2, 1.5, 1.0, 0.8])
-            with c_num:
-                st.markdown("**#**")
-            with c_rep:
-                st.markdown("**Repère / Désignation**")
-            with c_sens:
-                st.markdown("**Sens**")
-            with c_src:
-                st.markdown("**Source**")
-            with c_nom:
-                st.markdown("**Nominal**")
-            with c_tol:
-                st.markdown("**[EI ; ES]**")
-            with c_it:
-                st.markdown("**IT (mm)**")
-            with c_del:
-                st.markdown("**Retirer**")
-
-            for idx, link in enumerate(active_chain.links):
-                c_n, c_r, c_s, c_sc, c_nm, c_tl, c_i, c_d = st.columns([0.6, 2.2, 0.8, 1.8, 1.2, 1.5, 1.0, 0.8])
-                if link.part_id:
-                    p = project.parts.get(link.part_id)
-                    nom = (p.nominal * link.scale_factor) if p else 0.0
-                    es = (p.es * link.scale_factor) if p else 0.0
-                    ei = (p.ei * link.scale_factor) if p else 0.0
-                    source_lbl = f"🟢 [{link.part_id}]"
-                    rep_name = link.custom_name or (p.name if p else f"Maillon {idx+1}")
-                else:
-                    nom = (link.local_nominal or 0.0) * link.scale_factor
-                    es = (link.local_es or 0.0) * link.scale_factor
-                    ei = (link.local_ei or 0.0) * link.scale_factor
-                    source_lbl = "⚪ Locale"
-                    rep_name = link.custom_name or f"Cote locale {idx+1}"
-
-                orient_sym = "+" if link.orientation > 0 else "-"
-
-                with c_n:
-                    st.write(f"#{idx+1}")
-                with c_r:
-                    st.write(rep_name)
-                with c_s:
-                    st.write(f"**{orient_sym}**")
-                with c_sc:
-                    st.caption(source_lbl)
-                with c_nm:
-                    st.write(f"{nom:.3f}")
-                with c_tl:
-                    st.write(f"[{ei:+.3f} ; {es:+.3f}]")
-                with c_i:
-                    st.write(f"{es-ei:.3f}")
-                with c_d:
-                    if st.button("🗑️", key=f"del_link_{active_chain.id}_{idx}", help=f"Supprimer le maillon #{idx+1}"):
-                        project.remove_link_from_chain(active_chain.id, idx)
-                        st.rerun()
         else:
-            st.info("Cette chaîne ne contient actuellement aucun maillon. Ajoutez-en un ci-dessous.")
-
-        # Add link expander
-        with st.expander("➕ Ajouter un maillon à cette chaîne", expanded=False):
-            col_l1, col_l2, col_l3, col_l4 = st.columns([1.5, 1, 1.5, 1])
-            with col_l1:
-                link_kind = st.radio("Origine du maillon", options=["Pièce du Catalogue", "Cote Locale Autonome"], horizontal=True, key="link_kind_rad")
-            with col_l2:
-                link_orient_str = st.selectbox("Orientation vectorielle", options=["+ (augmente le jeu)", "- (diminue le jeu)"], key="link_orient_sel")
-                link_orient = 1 if link_orient_str.startswith("+") else -1
-
-            if link_kind == "Pièce du Catalogue":
-                with col_l3:
-                    cat_opts = list(project.parts.keys())
-                    if cat_opts:
-                        chosen_p_id = st.selectbox("Choisir la pièce maîtresse", options=cat_opts, format_func=lambda x: f"{project.parts[x].name} [{x}]", key="link_p_sel")
-                    else:
-                        st.warning("Aucune pièce au catalogue.")
-                        chosen_p_id = None
-                with col_l4:
-                    custom_lbl = st.text_input("Nom contextuel (optionnel)", key="link_custom_lbl")
-
-                if chosen_p_id and st.button("Ajouter le composant catalogue", type="primary", use_container_width=True, key="btn_add_cat_link"):
-                    project.add_link_to_chain(
-                        active_chain.id,
-                        part_id=chosen_p_id,
-                        orientation=link_orient,  # type: ignore
-                        custom_name=custom_lbl,
-                    )
-                    st.success("Maillon lié au catalogue ajouté !")
-                    st.rerun()
-            else:
-                with col_l3:
-                    loc_name = st.text_input("Nom de la cote locale", value="Jeu de gorge", key="link_loc_name")
-                    loc_nom = st.number_input("Nominal (mm)", min_value=0.0, value=10.0, step=1.0, key="link_loc_nom")
-                with col_l4:
-                    loc_es = st.number_input("ES (mm)", value=0.05, step=0.01, format="%.4f", key="link_loc_es")
-                    loc_ei = st.number_input("EI (mm)", value=-0.05, step=0.01, format="%.4f", key="link_loc_ei")
-
-                if st.button("Ajouter la cote locale", type="primary", use_container_width=True, key="btn_add_loc_link"):
-                    project.add_link_to_chain(
-                        active_chain.id,
-                        orientation=link_orient,  # type: ignore
-                        custom_name=loc_name,
-                        local_nominal=loc_nom,
-                        local_es=loc_es,
-                        local_ei=loc_ei,
-                    )
-                    st.success("Cote locale ajoutée !")
-                    st.rerun()
-
-        # =====================================================================
-        # RÉSULTATS DE CALCUL : PIRE DES CAS (WORST-CASE) UNIQUEMENT
-        # =====================================================================
-        if active_chain.links:
-            try:
-                res = project.evaluate_chain(active_chain.id)
-
-                st.divider()
-                st.markdown("#### 📐 Bilan arithmétique au Pire des Cas (Worst-Case)")
-
-                # WC Metrics Row
-                col_r1, col_r2, col_r3, col_r4 = st.columns(4)
-                with col_r1:
-                    st.metric("Jeu Nominal ($J_{\\text{nom}}$)", f"{res.nominal:.4f} mm")
-                with col_r2:
-                    st.metric("Jeu Minimal ($J_{\\min,\\text{WC}}$)", f"{res.worst_case_minus:.4f} mm")
-                with col_r3:
-                    st.metric("Jeu Maximal ($J_{\\max,\\text{WC}}$)", f"{res.worst_case_plus:.4f} mm")
-                with col_r4:
-                    wc_it = res.worst_case_plus - res.worst_case_minus
-                    st.metric("Dispersion Totale ($IT_{\\text{WC}}$)", f"{wc_it:.4f} mm")
-
-                # Compliance & Safety Margins (Worst-Case Only)
-                has_targets = active_chain.target_min is not None or active_chain.target_max is not None
-                if has_targets:
-                    col_m1, col_m2 = st.columns(2)
-                    wc_compliant = True
-
-                    with col_m1:
-                        if active_chain.target_min is not None:
-                            margin_min = res.worst_case_minus - active_chain.target_min
-                            delta_color = "normal" if margin_min >= 0 else "inverse"
-                            st.metric(
-                                f"Marge minimale (vs Cible {active_chain.target_min:.3f} mm)",
-                                f"{margin_min:+.4f} mm",
-                                delta=f"{margin_min:+.4f} mm",
-                                delta_color=delta_color,
-                            )
-                            if margin_min < 0:
-                                wc_compliant = False
-                        else:
-                            st.info("Aucune cible minimale spécifiée.")
-
-                    with col_m2:
-                        if active_chain.target_max is not None:
-                            margin_max = active_chain.target_max - res.worst_case_plus
-                            delta_color = "normal" if margin_max >= 0 else "inverse"
-                            st.metric(
-                                f"Marge maximale (vs Cible {active_chain.target_max:.3f} mm)",
-                                f"{margin_max:+.4f} mm",
-                                delta=f"{margin_max:+.4f} mm",
-                                delta_color=delta_color,
-                            )
-                            if margin_max < 0:
-                                wc_compliant = False
-                        else:
-                            st.info("Aucune cible maximale spécifiée.")
-
-                    # Worst-Case Banner Verdict
-                    if wc_compliant:
-                        st.success(
-                            f"✅ **100% CONFORME AU PIRE DES CAS** : Le jeu fonctionnel [{res.worst_case_minus:.4f} ; {res.worst_case_plus:.4f}] mm "
-                            f"est strictement compris dans les limites requises [{active_chain.target_min} ; {active_chain.target_max}] mm. "
-                            f"Aucun risque de collision ni de jeu excessif."
-                        )
-                    else:
-                        st.error(
-                            f"❌ **NON CONFORME AU PIRE DES CAS** : Dépassement des limites fonctionnelles ! "
-                            f"Ajustez les tolérances des pièces du catalogue pour retrouver la conformité."
-                        )
-
-                # Visual Horizontal Range Chart (WC only)
-                st.plotly_chart(
-                    render_wc_range_chart(res, active_chain.target_min, active_chain.target_max, active_chain.name),
-                    use_container_width=True,
+            # Top Bar: Select chain or Create new
+            col_c_sel, col_c_action = st.columns([2, 1])
+            with col_c_sel:
+                active_chain_id = st.selectbox(
+                    "Sélectionner la chaîne d'assemblage à afficher :",
+                    options=chain_keys,
+                    format_func=lambda x: f"{project.chains[x].name} ({len(project.chains[x].links)} maillons)",
+                    key="active_chain_select",
                 )
+            with col_c_action:
+                st.write("")
+                with st.expander("➕ Créer une autre chaîne", expanded=False):
+                    new_c_id = st.text_input("ID Chaîne", key="new_c_id")
+                    new_c_name = st.text_input("Nom de la chaîne", key="new_c_name")
+                    col_tmin, col_tmax = st.columns(2)
+                    with col_tmin:
+                        new_tmin = st.number_input("Cible Min (mm)", value=0.100, step=0.050, format="%.3f", key="new_tmin")
+                    with col_tmax:
+                        new_tmax = st.number_input("Cible Max (mm)", value=0.800, step=0.050, format="%.3f", key="new_tmax")
+                    if st.button("Créer la chaîne", type="primary", use_container_width=True, key="btn_create_chain"):
+                        try:
+                            new_chain = AssemblyChain(
+                                id=new_c_id.strip().upper(),
+                                name=new_c_name.strip(),
+                                target_min=new_tmin,
+                                target_max=new_tmax,
+                            )
+                            project.add_chain(new_chain)
+                            st.success(f"Chaîne '{new_chain.name}' créée avec succès !")
+                            st.rerun()
+                        except Exception as err:
+                            st.error(f"Erreur : {err}")
 
-            except Exception as e:
-                st.error(f"Erreur de calcul pour la chaîne '{active_chain.id}' : {e}")
+            active_chain = project.get_chain(active_chain_id)
+
+            # Settings of Active Chain: Edit Limits, Name, Targets, or Delete Chain
+            with st.expander("⚙️ Modifier les limites cibles ou supprimer cette chaîne", expanded=False):
+                col_ed1, col_ed2 = st.columns([2, 1])
+                with col_ed1:
+                    edit_chain_name = st.text_input("Nom de la chaîne", value=active_chain.name, key="edit_c_name")
+                    edit_chain_desc = st.text_input("Description", value=active_chain.description, key="edit_c_desc")
+                    col_ed_t1, col_ed_t2 = st.columns(2)
+                    with col_ed_t1:
+                        edit_chain_tmin = st.number_input(
+                            "Cible minimale J_min (mm)",
+                            value=active_chain.target_min if active_chain.target_min is not None else 0.0,
+                            step=0.050,
+                            format="%.3f",
+                            key="edit_c_tmin",
+                        )
+                    with col_ed_t2:
+                        edit_chain_tmax = st.number_input(
+                            "Cible maximale J_max (mm)",
+                            value=active_chain.target_max if active_chain.target_max is not None else 1.0,
+                            step=0.050,
+                            format="%.3f",
+                            key="edit_c_tmax",
+                        )
+                    if st.button("💾 Mettre à jour les limites et le nom", type="primary", key="btn_update_chain_limits"):
+                        try:
+                            project.update_chain(
+                                active_chain.id,
+                                name=edit_chain_name,
+                                description=edit_chain_desc,
+                                target_min=edit_chain_tmin,
+                                target_max=edit_chain_tmax,
+                            )
+                            st.success("Limites de la chaîne mises à jour avec succès !")
+                            st.rerun()
+                        except Exception as err:
+                            st.error(f"Erreur : {err}")
+
+                with col_ed2:
+                    st.markdown("#### Zone dangereuse")
+                    st.caption("Supprime définitivement cette chaîne d'assemblage du projet.")
+                    if st.button("🗑️ Supprimer cette chaîne", type="secondary", use_container_width=True, key="btn_delete_chain"):
+                        project.remove_chain(active_chain.id)
+                        st.warning("Chaîne d'assemblage supprimée.")
+                        st.rerun()
+
+            # Display active chain targets
+            col_t1, col_t2 = st.columns(2)
+            with col_t1:
+                t_min_str = f"{active_chain.target_min:.3f} mm" if active_chain.target_min is not None else "Non spécifié"
+                st.markdown(f"**Cible minimale ($J_{{\\min}}$)** : `{t_min_str}`")
+            with col_t2:
+                t_max_str = f"{active_chain.target_max:.3f} mm" if active_chain.target_max is not None else "Non spécifié"
+                st.markdown(f"**Cible maximale ($J_{{\\max}}$)** : `{t_max_str}`")
+
+            # Composition vectorielle des maillons avec suppression individuelle
+            st.markdown("#### Composition vectorielle de la chaîne")
+
+            if active_chain.links:
+                # Table header
+                c_num, c_rep, c_sens, c_src, c_nom, c_tol, c_it, c_del = st.columns([0.6, 2.2, 0.8, 1.8, 1.2, 1.5, 1.0, 0.8])
+                with c_num:
+                    st.markdown("**#**")
+                with c_rep:
+                    st.markdown("**Repère / Désignation**")
+                with c_sens:
+                    st.markdown("**Sens**")
+                with c_src:
+                    st.markdown("**Source**")
+                with c_nom:
+                    st.markdown("**Nominal**")
+                with c_tol:
+                    st.markdown("**[EI ; ES]**")
+                with c_it:
+                    st.markdown("**IT (mm)**")
+                with c_del:
+                    st.markdown("**Retirer**")
+
+                for idx, link in enumerate(active_chain.links):
+                    c_n, c_r, c_s, c_sc, c_nm, c_tl, c_i, c_d = st.columns([0.6, 2.2, 0.8, 1.8, 1.2, 1.5, 1.0, 0.8])
+                    if link.part_id:
+                        p = project.parts.get(link.part_id)
+                        nom = (p.nominal * link.scale_factor) if p else 0.0
+                        es = (p.es * link.scale_factor) if p else 0.0
+                        ei = (p.ei * link.scale_factor) if p else 0.0
+                        source_lbl = f"🟢 [{link.part_id}]"
+                        rep_name = link.custom_name or (p.name if p else f"Maillon {idx+1}")
+                    else:
+                        nom = (link.local_nominal or 0.0) * link.scale_factor
+                        es = (link.local_es or 0.0) * link.scale_factor
+                        ei = (link.local_ei or 0.0) * link.scale_factor
+                        source_lbl = "⚪ Locale"
+                        rep_name = link.custom_name or f"Cote locale {idx+1}"
+
+                    orient_sym = "+" if link.orientation > 0 else "-"
+
+                    with c_n:
+                        st.write(f"#{idx+1}")
+                    with c_r:
+                        st.write(rep_name)
+                    with c_s:
+                        st.write(f"**{orient_sym}**")
+                    with c_sc:
+                        st.caption(source_lbl)
+                    with c_nm:
+                        st.write(f"{nom:.3f}")
+                    with c_tl:
+                        st.write(f"[{ei:+.3f} ; {es:+.3f}]")
+                    with c_i:
+                        st.write(f"{es-ei:.3f}")
+                    with c_d:
+                        if st.button("🗑️", key=f"del_link_{active_chain.id}_{idx}", help=f"Supprimer le maillon #{idx+1}"):
+                            project.remove_link_from_chain(active_chain.id, idx)
+                            st.rerun()
+            else:
+                st.info("Cette chaîne ne contient actuellement aucun maillon. Ajoutez-en un ci-dessous.")
+
+            # Add link expander
+            with st.expander("➕ Ajouter un maillon à cette chaîne", expanded=False):
+                col_l1, col_l2, col_l3, col_l4 = st.columns([1.5, 1, 1.5, 1])
+                with col_l1:
+                    link_kind = st.radio("Origine du maillon", options=["Pièce du Catalogue", "Cote Locale Autonome"], horizontal=True, key="link_kind_rad")
+                with col_l2:
+                    link_orient_str = st.selectbox("Orientation vectorielle", options=["+ (augmente le jeu)", "- (diminue le jeu)"], key="link_orient_sel")
+                    link_orient = 1 if link_orient_str.startswith("+") else -1
+
+                if link_kind == "Pièce du Catalogue":
+                    with col_l3:
+                        cat_opts = list(project.parts.keys())
+                        if cat_opts:
+                            chosen_p_id = st.selectbox("Choisir la pièce maîtresse", options=cat_opts, format_func=lambda x: f"{project.parts[x].name} [{x}]", key="link_p_sel")
+                        else:
+                            st.warning("Aucune pièce au catalogue.")
+                            chosen_p_id = None
+                    with col_l4:
+                        custom_lbl = st.text_input("Nom contextuel (optionnel)", key="link_custom_lbl")
+
+                    if chosen_p_id and st.button("Ajouter le composant catalogue", type="primary", use_container_width=True, key="btn_add_cat_link"):
+                        project.add_link_to_chain(
+                            active_chain.id,
+                            part_id=chosen_p_id,
+                            orientation=link_orient,  # type: ignore
+                            custom_name=custom_lbl,
+                        )
+                        st.success("Maillon lié au catalogue ajouté !")
+                        st.rerun()
+                else:
+                    with col_l3:
+                        loc_name = st.text_input("Nom de la cote locale", value="Jeu de gorge", key="link_loc_name")
+                        loc_nom = st.number_input("Nominal (mm)", min_value=0.0, value=10.0, step=1.0, key="link_loc_nom")
+                    with col_l4:
+                        loc_es = st.number_input("ES (mm)", value=0.05, step=0.01, format="%.4f", key="link_loc_es")
+                        loc_ei = st.number_input("EI (mm)", value=-0.05, step=0.01, format="%.4f", key="link_loc_ei")
+
+                    if st.button("Ajouter la cote locale", type="primary", use_container_width=True, key="btn_add_loc_link"):
+                        project.add_link_to_chain(
+                            active_chain.id,
+                            orientation=link_orient,  # type: ignore
+                            custom_name=loc_name,
+                            local_nominal=loc_nom,
+                            local_es=loc_es,
+                            local_ei=loc_ei,
+                        )
+                        st.success("Cote locale ajoutée !")
+                        st.rerun()
+
+            # =====================================================================
+            # RÉSULTATS DE CALCUL : PIRE DES CAS (WORST-CASE) UNIQUEMENT
+            # =====================================================================
+            if active_chain.links:
+                try:
+                    res = project.evaluate_chain(active_chain.id)
+
+                    st.divider()
+                    st.markdown("#### 📐 Bilan arithmétique au Pire des Cas (Worst-Case)")
+
+                    # WC Metrics Row
+                    col_r1, col_r2, col_r3, col_r4 = st.columns(4)
+                    with col_r1:
+                        st.metric("Jeu Nominal ($J_{\\text{nom}}$)", f"{res.nominal:.4f} mm")
+                    with col_r2:
+                        st.metric("Jeu Minimal ($J_{\\min,\\text{WC}}$)", f"{res.worst_case_minus:.4f} mm")
+                    with col_r3:
+                        st.metric("Jeu Maximal ($J_{\\max,\\text{WC}}$)", f"{res.worst_case_plus:.4f} mm")
+                    with col_r4:
+                        wc_it = res.worst_case_plus - res.worst_case_minus
+                        st.metric("Dispersion Totale ($IT_{\\text{WC}}$)", f"{wc_it:.4f} mm")
+
+                    # Compliance & Safety Margins (Worst-Case Only)
+                    has_targets = active_chain.target_min is not None or active_chain.target_max is not None
+                    if has_targets:
+                        col_m1, col_m2 = st.columns(2)
+                        wc_compliant = True
+
+                        with col_m1:
+                            if active_chain.target_min is not None:
+                                margin_min = res.worst_case_minus - active_chain.target_min
+                                delta_color = "normal" if margin_min >= 0 else "inverse"
+                                st.metric(
+                                    f"Marge minimale (vs Cible {active_chain.target_min:.3f} mm)",
+                                    f"{margin_min:+.4f} mm",
+                                    delta=f"{margin_min:+.4f} mm",
+                                    delta_color=delta_color,
+                                )
+                                if margin_min < 0:
+                                    wc_compliant = False
+                            else:
+                                st.info("Aucune cible minimale spécifiée.")
+
+                        with col_m2:
+                            if active_chain.target_max is not None:
+                                margin_max = active_chain.target_max - res.worst_case_plus
+                                delta_color = "normal" if margin_max >= 0 else "inverse"
+                                st.metric(
+                                    f"Marge maximale (vs Cible {active_chain.target_max:.3f} mm)",
+                                    f"{margin_max:+.4f} mm",
+                                    delta=f"{margin_max:+.4f} mm",
+                                    delta_color=delta_color,
+                                )
+                                if margin_max < 0:
+                                    wc_compliant = False
+                            else:
+                                st.info("Aucune cible maximale spécifiée.")
+
+                        # Worst-Case Banner Verdict
+                        if wc_compliant:
+                            st.success(
+                                f"✅ **100% CONFORME AU PIRE DES CAS** : Le jeu fonctionnel [{res.worst_case_minus:.4f} ; {res.worst_case_plus:.4f}] mm "
+                                f"est strictement compris dans les limites requises [{active_chain.target_min} ; {active_chain.target_max}] mm. "
+                                f"Aucun risque de collision ni de jeu excessif."
+                            )
+                        else:
+                            st.error(
+                                f"❌ **NON CONFORME AU PIRE DES CAS** : Dépassement des limites fonctionnelles ! "
+                                f"Ajustez les tolérances des pièces du catalogue pour retrouver la conformité."
+                            )
+
+                    # Visual Horizontal Range Chart (WC only)
+                    st.plotly_chart(
+                        render_wc_range_chart(res, active_chain.target_min, active_chain.target_max, active_chain.name),
+                        use_container_width=True,
+                    )
+
+                except Exception as e:
+                    st.error(f"Erreur de calcul pour la chaîne '{active_chain.id}' : {e}")
 
     # =========================================================================
     # ONGLET 3: TABLEAU DE BORD SYSTÈME & MATRICE DES IMPACTS (100% WC)
