@@ -54,7 +54,7 @@ CotaStack/
 - Monte Carlo: vectorized with NumPy, standard run is 100,000 iterations
 
 ## Testing
-- Tests in `tests/test_calculator.py`, `tests/test_iso_standards.py`, `tests/test_thermal.py`, `tests/test_monte_carlo.py`, `tests/test_reports_and_io.py`
+- Tests in `tests/test_calculator.py`, `tests/test_iso_standards.py`, `tests/test_geometric_tolerances.py`, `tests/test_multi_chain.py`, `tests/test_thermal.py`, `tests/test_monte_carlo.py`, `tests/test_tolerance_synthesis.py`, `tests/test_reports_and_io.py`
 - Uses `approx_equal` helper for float comparisons
 - Target: 100% test coverage on backend modules
 
