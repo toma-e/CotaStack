@@ -15,6 +15,7 @@ CotaStack/
 │   ├── thermal.py            # Differential thermal expansion (alpha, delta_T, J(T))
 │   ├── monte_carlo.py        # Stochastic simulation engine (100k runs, distributions, PPM)
 │   ├── tolerance_synthesis.py# Inverse tolerance allocation (cost, proportional, ISO)
+│   ├── feedback.py           # User feedback & suggestion collection (JSONL)
 │   ├── project_io.py         # .cotastack JSON format save & load (privacy-first)
 │   └── report_generator.py   # Vectorized A4 PDF calculation report (ReportLab)
 ├── app.py                    # Streamlit entry point (multipage)
@@ -31,6 +32,7 @@ CotaStack/
 │   ├── test_thermal.py       # Thermal expansion tests
 │   ├── test_monte_carlo.py   # Monte Carlo simulation tests
 │   ├── test_tolerance_synthesis.py # Inverse allocation tests
+│   ├── test_feedback.py       # Feedback collection tests
 │   └── test_reports_and_io.py# .cotastack IO & PDF generator tests
 ├── landing/                  # Static redirection & portal page
 └── .streamlit/config.toml    # Theme & server config
@@ -54,7 +56,7 @@ CotaStack/
 - Monte Carlo: vectorized with NumPy, standard run is 100,000 iterations
 
 ## Testing
-- Tests in `tests/test_calculator.py`, `tests/test_iso_standards.py`, `tests/test_geometric_tolerances.py`, `tests/test_multi_chain.py`, `tests/test_thermal.py`, `tests/test_monte_carlo.py`, `tests/test_tolerance_synthesis.py`, `tests/test_reports_and_io.py`
+- Tests in `tests/test_calculator.py`, `tests/test_iso_standards.py`, `tests/test_geometric_tolerances.py`, `tests/test_multi_chain.py`, `tests/test_thermal.py`, `tests/test_monte_carlo.py`, `tests/test_tolerance_synthesis.py`, `tests/test_feedback.py`, `tests/test_reports_and_io.py`
 - Uses `approx_equal` helper for float comparisons
 - Target: 100% test coverage on backend modules
 

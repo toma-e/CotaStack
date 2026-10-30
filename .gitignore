@@ -49,3 +49,4 @@ logs/
 # Misc
 *.pot
 *.pyc
+feedbacks*.jsonl

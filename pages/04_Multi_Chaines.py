@@ -17,6 +17,7 @@ from backend.multi_chain import (
 )
 from backend.iso_standards import get_available_iso286_symbols, get_iso286_limits
 from backend.thermal import get_available_materials
+from backend.feedback import save_feedback
 
 st.set_page_config(
     page_title="Multi-Chaînes Système — CotaStack",
@@ -452,6 +453,59 @@ def render_impact_heatmap(project: MultiChainProject, summary):
     return fig
 
 
+def render_feedback_form(location: str = "popover") -> None:
+    """Render the user feedback & suggestion form."""
+    st.markdown("##### 💬 Votre avis pour faire progresser CotaStack")
+    st.caption("Une idée de fonctionnalité, un besoin de calcul ou un retour d'expérience ? Partagez-le directement avec l'équipe.")
+
+    fb_type = st.selectbox(
+        "Type de retour",
+        options=[
+            "💡 Suggestion d'amélioration / fonctionnalité",
+            "🐞 Signalement d'anomalie ou bug",
+            "📐 Besoin métier / calcul spécifique",
+            "🌟 Retour d'expérience / avis général",
+        ],
+        key=f"fb_type_{location}",
+    )
+    fb_msg = st.text_area(
+        "Votre message / idée",
+        placeholder="Ex: Il serait très utile de pouvoir exporter les résultats vers Excel ou de gérer les cotes angulaires...",
+        key=f"fb_msg_{location}",
+        height=100,
+    )
+    fb_email = st.text_input(
+        "Votre adresse e-mail (optionnel, pour vous tenir informé)",
+        placeholder="nom@entreprise.fr",
+        key=f"fb_email_{location}",
+    )
+
+    col_btn_send, col_btn_gh = st.columns([1.5, 1])
+    with col_btn_send:
+        if st.button("🚀 Envoyer mon retour", type="primary", use_container_width=True, key=f"btn_send_fb_{location}"):
+            if not fb_msg.strip():
+                st.warning("Merci de renseigner un message avant d'envoyer.")
+            else:
+                try:
+                    save_feedback(
+                        message=fb_msg,
+                        feedback_type=fb_type.split()[1] if len(fb_type.split()) > 1 else "suggestion",
+                        author_email=fb_email,
+                        metadata={"location": location},
+                    )
+                    st.success("✅ Merci beaucoup ! Votre retour a bien été enregistré et sera étudié avec attention.")
+                except Exception as err:
+                    st.error(f"Erreur d'enregistrement : {err}")
+
+    with col_btn_gh:
+        st.link_button(
+            "🐙 Issue GitHub",
+            url="https://github.com/toma-e/CotaStack/issues/new",
+            use_container_width=True,
+            help="Ouvrir un ticket public sur le dépôt GitHub",
+        )
+
+
 def main() -> None:
     # -------------------------------------------------------------------------
     # Initialisation Session State
@@ -496,8 +550,8 @@ def main() -> None:
                 )
 
         with col_h3:
-            # Action Toolset: Save/Load Popover, Demo, Reset
-            col_b1, col_b2 = st.columns(2)
+            # Action Toolset: Save/Load Popover, Demo, Reset, User Feedback
+            col_b1, col_b2, col_b3 = st.columns(3)
             with col_b1:
                 with st.popover("💾 Projet", use_container_width=True):
                     st.markdown("##### 📂 Charger un fichier")
@@ -531,7 +585,7 @@ def main() -> None:
             with col_b2:
                 with st.popover("⚙️ Actions", use_container_width=True):
                     st.markdown("##### Exemples & Réinitialisation")
-                    if st.button("🔄 Démo (Boîte de vitesses)", use_container_width=True):
+                    if st.button("🔄 Démo (Boîte)", use_container_width=True):
                         st.session_state.multi_project = init_default_project()
                         st.session_state.uploader_counter += 1
                         st.toast("Exemple complet réinitialisé !")
@@ -546,6 +600,10 @@ def main() -> None:
                         st.session_state.uploader_counter += 1
                         st.toast("Projet vidé (0 pièce, 0 chaîne) !")
                         st.rerun()
+
+            with col_b3:
+                with st.popover("💬 Avis", use_container_width=True):
+                    render_feedback_form("header")
 
     # -------------------------------------------------------------------------
     # Onglets Métier
@@ -1146,6 +1204,14 @@ def main() -> None:
             st.dataframe(pd.DataFrame(sys_rows), use_container_width=True, hide_index=True)
         else:
             st.info("Aucune chaîne définie dans le projet.")
+
+    # -------------------------------------------------------------------------
+    # Pied de page & Boîte à idées pour faire avancer le projet
+    # -------------------------------------------------------------------------
+    st.write("")
+    st.divider()
+    with st.expander("💬 Une idée, un retour ou un besoin spécifique pour CotaStack ? Laissez-nous un commentaire", expanded=False):
+        render_feedback_form("footer")
 
 
 if __name__ == "__main__":
