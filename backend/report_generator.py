@@ -6,6 +6,7 @@ design reviews and quality records.
 
 import io
 from datetime import date
+import html
 from typing import Any
 
 from reportlab.lib import colors
@@ -120,11 +121,12 @@ def generate_pdf_report(
         alignment=1,
     )
 
+    # Security: escape user-controlled text inputs to prevent ReportLab XML/HTML markup injection
     meta = project_metadata or {}
-    proj_title = meta.get("title", "Chaîne de cotes 1D — Note de calcul")
-    author = meta.get("author", "Bureau d'Études Mécanique")
-    revision = meta.get("revision", "A")
-    today_str = meta.get("date", str(date.today()))
+    proj_title = html.escape(str(meta.get("title", "Chaîne de cotes 1D — Note de calcul")))
+    author = html.escape(str(meta.get("author", "Bureau d'Études Mécanique")))
+    revision = html.escape(str(meta.get("revision", "A")))
+    today_str = html.escape(str(meta.get("date", str(date.today()))))
 
     elements = []
 
@@ -179,15 +181,18 @@ def generate_pdf_report(
     for item in items:
         sign_str = "+" if item.orientation > 0 else "-"
         mat_str = item.material or "Acier"
+        # Security: escape item names and materials to prevent XML parser errors or markup injection
+        safe_name = html.escape(str(item.name))
+        safe_mat = html.escape(str(mat_str.split()[0]))
         table_rows.append([
-            Paragraph(item.name, cell_body),
+            Paragraph(safe_name, cell_body),
             Paragraph(sign_str, cell_body),
             Paragraph(f"{item.nominal:.4f}", cell_body),
             Paragraph(f"{item.ei:+.4f}", cell_body),
             Paragraph(f"{item.es:+.4f}", cell_body),
             Paragraph(f"{item.IT:.4f}", cell_body),
             Paragraph(f"{item.L_moy:.4f}", cell_body),
-            Paragraph(mat_str.split()[0], cell_body),
+            Paragraph(safe_mat, cell_body),
         ])
 
     items_table = Table(table_rows, colWidths=[36 * mm, 12 * mm, 22 * mm, 18 * mm, 18 * mm, 18 * mm, 24 * mm, 32 * mm])
