@@ -95,6 +95,39 @@ class TestPDFReportGenerator:
         assert len(pdf_bytes) > 1000
         assert pdf_bytes.startswith(b"%PDF-")
 
+    def test_pdf_generation_escapes_special_characters_and_tags(self) -> None:
+        """Security: Verify user input with HTML/XML characters does not break PDF generation."""
+        items = [
+            Item(
+                name="<script>alert('xss')</script> & Cote <1>",
+                nominal=25.0,
+                ei=-0.05,
+                es=0.05,
+                orientation=1,
+                material="Acier & Alliage <Special>",
+            ),
+        ]
+        calc = ChainCalculator(items)
+        res = calc.calculate()
+
+        # Metadata with unclosed tags and XML entities that would cause ReportLab parse errors
+        meta = {
+            "title": "Projet <Test> & <Unclosed Tag",
+            "author": "Ingénieur <BE> & 'Qualité'",
+            "revision": "Rev <A&B>",
+            "date": "2026-10-30 <UTC>",
+        }
+
+        pdf_bytes = generate_pdf_report(
+            items=items,
+            result=res,
+            project_metadata=meta,
+        )
+
+        assert isinstance(pdf_bytes, bytes)
+        assert len(pdf_bytes) > 1000
+        assert pdf_bytes.startswith(b"%PDF-")
+
     def test_pdf_generation_with_advanced_summaries(self) -> None:
         items = [Item(name="Solo", nominal=10.0, ei=-0.1, es=0.1)]
         calc = ChainCalculator(items)
