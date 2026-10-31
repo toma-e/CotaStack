@@ -1,0 +1,3 @@
+## 2025-05-18 - Toast de confirmation et précision du tooltip lors du retrait de maillons
+**Learning:** Dans les interfaces Streamlit affichant une boucle de composants modifiables (cards ou listes ordonnées), supprimer un élément suivi d'un `st.rerun()` immédiat sans notification laisse l'utilisateur sans repère visuel quant à la pièce ou la cote qui vient d'être retirée.
+**Action:** Toujours coupler la suppression d'un item dans une liste avec un `st.toast(...)` mentionnant explicitement l'identifiant/nom de l'entité retirée, et contextualiser l'attribut `help` du bouton avec le nom de l'élément ciblé.

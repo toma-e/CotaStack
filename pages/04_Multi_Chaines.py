@@ -1018,8 +1018,9 @@ def main() -> None:
                                         st.rerun()
                             with c_r6:
                                 st.caption("Suppr.")
-                                if st.button("🗑️", key=f"del_link_{active_chain.id}_{idx}", help=f"Retirer le maillon #{idx+1}"):
+                                if st.button("🗑️", key=f"del_link_{active_chain.id}_{idx}", help=f"Retirer le maillon #{idx+1} ({rep_name})"):
                                     project.remove_link_from_chain(active_chain.id, idx)
+                                    st.toast(f"Maillon #{idx+1} ('{rep_name}') retiré de la chaîne !", icon="🗑️")
                                     st.rerun()
                 else:
                     st.info("Cette chaîne ne contient aucun maillon pour l'instant.")
