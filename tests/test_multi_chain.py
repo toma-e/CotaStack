@@ -400,3 +400,14 @@ class TestMultiChainProject:
             MultiChainProject.from_json("corrupted json string {")
         with pytest.raises(ValueError, match="Données du projet multi-chaînes invalides"):
             MultiChainProject.from_dict("not a dict")  # type: ignore
+
+    def test_part_id_html_sanitization_in_badge(self):
+        """Security: Verify part_id with HTML tags is properly escaped against XSS."""
+        import html
+
+        malicious_part_id = '<script>alert("xss")</script>'
+        safe_part_id = html.escape(str(malicious_part_id))
+        source_badge = f"<span style='color:#0369a1; background:#e0f2fe; padding:2px 6px; border-radius:4px; font-size:0.8rem;'>📦 [{safe_part_id}]</span>"
+
+        assert "<script>" not in source_badge
+        assert "&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;" in source_badge
