@@ -4,6 +4,7 @@ Gestion centralisée des pièces maîtresses, Schéma vectoriel 1D & Calculs ari
 Interface ergonomique et visuelle enrichie pour les bureaux d'études.
 """
 
+import html
 import os
 import streamlit as st
 import pandas as pd
@@ -971,7 +972,9 @@ def main() -> None:
                             nom = (p.nominal * link.scale_factor) if p else 0.0
                             es = (p.es * link.scale_factor) if p else 0.0
                             ei = (p.ei * link.scale_factor) if p else 0.0
-                            source_badge = f"<span style='color:#0369a1; background:#e0f2fe; padding:2px 6px; border-radius:4px; font-size:0.8rem;'>📦 [{link.part_id}]</span>"
+                            # Security: Escape part_id to prevent XSS injection via unsafe_allow_html
+                            safe_part_id = html.escape(str(link.part_id))
+                            source_badge = f"<span style='color:#0369a1; background:#e0f2fe; padding:2px 6px; border-radius:4px; font-size:0.8rem;'>📦 [{safe_part_id}]</span>"
                             rep_name = link.custom_name or (p.name if p else f"Maillon {idx+1}")
                         else:
                             nom = (link.local_nominal or 0.0) * link.scale_factor
