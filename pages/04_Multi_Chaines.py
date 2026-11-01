@@ -818,7 +818,12 @@ def main() -> None:
 
                 with col_del_btn:
                     if part_action.startswith("📝") and target_part:
-                        if st.button("🗑️ Supprimer", use_container_width=True, key="btn_delete_catalog_part"):
+                        if st.button(
+                            "🗑️ Supprimer",
+                            use_container_width=True,
+                            key="btn_delete_catalog_part",
+                            help=f"Supprimer définitivement '{target_part.name}' et ses liaisons dans toutes les chaînes",
+                        ):
                             impacted = project.remove_part(target_part.id)
                             msg = f"Pièce '{target_part.name}' retirée du catalogue."
                             if impacted:
@@ -1009,12 +1014,26 @@ def main() -> None:
                                 st.caption("Ordre")
                                 col_up, col_dn = st.columns(2)
                                 with col_up:
-                                    if st.button("▲", key=f"up_link_{active_chain.id}_{idx}", disabled=(idx == 0), help="Monter le maillon d'un cran", use_container_width=True):
+                                    if st.button(
+                                        "▲",
+                                        key=f"up_link_{active_chain.id}_{idx}",
+                                        disabled=(idx == 0),
+                                        help=f"Monter #{idx+1} ('{rep_name}') en position #{idx}",
+                                        use_container_width=True,
+                                    ):
                                         project.move_link_up(active_chain.id, idx)
+                                        st.toast(f"Maillon #{idx+1} ('{rep_name}') déplacé vers le haut !", icon="🔼")
                                         st.rerun()
                                 with col_dn:
-                                    if st.button("▼", key=f"down_link_{active_chain.id}_{idx}", disabled=(idx == len(active_chain.links) - 1), help="Descendre le maillon d'un cran", use_container_width=True):
+                                    if st.button(
+                                        "▼",
+                                        key=f"down_link_{active_chain.id}_{idx}",
+                                        disabled=(idx == len(active_chain.links) - 1),
+                                        help=f"Descendre #{idx+1} ('{rep_name}') en position #{idx+2}",
+                                        use_container_width=True,
+                                    ):
                                         project.move_link_down(active_chain.id, idx)
+                                        st.toast(f"Maillon #{idx+1} ('{rep_name}') déplacé vers le bas !", icon="🔽")
                                         st.rerun()
                             with c_r6:
                                 st.caption("Suppr.")
