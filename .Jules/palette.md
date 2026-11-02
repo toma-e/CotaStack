@@ -1,3 +1,7 @@
 ## 2025-05-18 - Toast de confirmation et précision du tooltip lors du retrait de maillons
 **Learning:** Dans les interfaces Streamlit affichant une boucle de composants modifiables (cards ou listes ordonnées), supprimer un élément suivi d'un `st.rerun()` immédiat sans notification laisse l'utilisateur sans repère visuel quant à la pièce ou la cote qui vient d'être retirée.
 **Action:** Toujours coupler la suppression d'un item dans une liste avec un `st.toast(...)` mentionnant explicitement l'identifiant/nom de l'entité retirée, et contextualiser l'attribut `help` du bouton avec le nom de l'élément ciblé.
+
+## 2026-11-02 - Prévention de la troncature dans les boutons de popover d'en-tête
+**Learning:** Les boutons déclencheurs de popovers Streamlit (`st.popover`) incluent systématiquement une icône chevron descendante (`expand_more`) et un conteneur d'icône supplémentaire. Lorsque plusieurs popovers sont juxtaposés dans des sous-colonnes étroites (`st.columns(3)` dans une colonne de ratio ≤ 1.3), l'espace textuel utilisable est compressé sous 70px, entraînant une troncature agressive avec ellipse (ex. "Pr...", "Ac...").
+**Action:** Séparer l'émoji dans le paramètre dédié `icon="..."` plutôt que dans la chaîne de libellé, allouer un ratio de colonne suffisant (≥ 1.7 pour 3 popovers d'en-tête avec `use_container_width=True`), et toujours renseigner le paramètre `help="..."` pour garantir la lisibilité au survol et l'accessibilité screen reader.

@@ -540,7 +540,7 @@ def main() -> None:
     # En-tête Moderne & Barre de Statut Système (KPIs)
     # -------------------------------------------------------------------------
     with st.container(border=True):
-        col_h1, col_h2, col_h3 = st.columns([2.5, 1.2, 1.3])
+        col_h1, col_h2, col_h3 = st.columns([2.2, 1.1, 1.7])
 
         with col_h1:
             st.markdown(f"## 🏢 {project.name}")
@@ -569,7 +569,12 @@ def main() -> None:
             # Action Toolset: Save/Load Popover, Demo, Reset, User Feedback
             col_b1, col_b2, col_b3 = st.columns(3)
             with col_b1:
-                with st.popover("💾 Projet", use_container_width=True):
+                with st.popover(
+                    "Projet",
+                    icon="💾",
+                    help="Sauvegarder ou importer un projet multi-chaînes",
+                    use_container_width=True,
+                ):
                     st.markdown("##### 📂 Charger un fichier")
                     up_file = st.file_uploader(
                         "Fichier projet (.cotastack_multi.json)",
@@ -599,7 +604,12 @@ def main() -> None:
                     )
 
             with col_b2:
-                with st.popover("⚙️ Actions", use_container_width=True):
+                with st.popover(
+                    "Actions",
+                    icon="⚙️",
+                    help="Actions rapides et réinitialisation du projet",
+                    use_container_width=True,
+                ):
                     st.markdown("##### Exemples & Réinitialisation")
                     if st.button("🔄 Démo (Boîte)", use_container_width=True):
                         st.session_state.multi_project = init_default_project()
@@ -618,7 +628,12 @@ def main() -> None:
                         st.rerun()
 
             with col_b3:
-                with st.popover("💬 Avis", use_container_width=True):
+                with st.popover(
+                    "Avis",
+                    icon="💬",
+                    help="Partager une suggestion ou signaler une anomalie",
+                    use_container_width=True,
+                ):
                     render_feedback_form("header")
 
     # -------------------------------------------------------------------------
