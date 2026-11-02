@@ -9,6 +9,7 @@ from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
 import json
 from pathlib import Path
+import re
 import urllib.parse
 import urllib.request
 import urllib.error
@@ -16,6 +17,20 @@ import urllib.error
 
 DEFAULT_FEEDBACK_FILE = Path("feedbacks.jsonl")
 DEFAULT_GITHUB_REPO = "toma-e/CotaStack"
+GITHUB_REPO_PATTERN = re.compile(r"^[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+$")
+
+
+def _validate_github_repo(repo: str) -> str:
+    """Validate GitHub repository identifier to prevent URL manipulation and SSRF."""
+    if not isinstance(repo, str):
+        raise ValueError("Le dépôt GitHub doit être une chaîne de caractères.")
+    clean_repo = repo.strip()
+    # Check that repo has no leading/trailing whitespace, newlines, and strictly matches format
+    if clean_repo != repo or not clean_repo or not GITHUB_REPO_PATTERN.match(clean_repo):
+        raise ValueError(
+            f"Dépôt GitHub invalide : '{repo}'. Le format attendu est 'proprietaire/depot'."
+        )
+    return clean_repo
 
 
 @dataclass(slots=True)
@@ -139,7 +154,8 @@ def build_github_issue_url(
     labels: list[str] | None = None,
 ) -> str:
     """Build a pre-filled GitHub web URL to open the issue creation page."""
-    base = f"https://github.com/{repo}/issues/new"
+    valid_repo = _validate_github_repo(repo)
+    base = f"https://github.com/{valid_repo}/issues/new"
     query_params: dict[str, str] = {
         "title": title,
         "body": body,
@@ -162,7 +178,8 @@ def submit_github_issue(
     if not clean_token:
         raise ValueError("Le jeton d'accès GitHub (GITHUB_TOKEN) est manquant ou vide.")
 
-    url = f"https://api.github.com/repos/{repo}/issues"
+    valid_repo = _validate_github_repo(repo)
+    url = f"https://api.github.com/repos/{valid_repo}/issues"
     headers = {
         "Authorization": f"Bearer {clean_token}",
         "Accept": "application/vnd.github+json",
