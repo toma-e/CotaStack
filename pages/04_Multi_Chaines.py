@@ -45,6 +45,12 @@ st.markdown(
         visibility: hidden !important;
         width: 0px !important;
     }
+    /* Masquer le menu d'en-tête et les boutons de la barre d'outils (Fork, GitHub, etc.) */
+    #MainMenu {visibility: hidden !important;}
+    header {visibility: hidden !important;}
+    footer {visibility: hidden !important;}
+    [data-testid="stToolbar"] {visibility: hidden !important; display: none !important;}
+    .stAppDeployButton {display: none !important;}
     .metric-card {
         background: #f8fafc;
         border: 1px solid #e2e8f0;
