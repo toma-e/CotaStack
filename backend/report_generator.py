@@ -370,8 +370,8 @@ def _build_1d_chain_drawing(chain: AssemblyChain, items: list[Item], width_mm: f
         span = 1.0
 
     # Margins inside drawing
-    pad_left = 40.0
-    pad_right = 40.0
+    pad_left = 45.0
+    pad_right = 45.0
     plot_w = max(100.0, draw_width - pad_left - pad_right)
 
     def to_pt_x(val: float) -> float:
@@ -379,10 +379,10 @@ def _build_1d_chain_drawing(chain: AssemblyChain, items: list[Item], width_mm: f
 
     # Vertical sizing
     n_links = len(items)
-    row_h = 24.0
-    closure_h = 28.0
-    header_pad = 18.0
-    draw_height = max(70.0, header_pad + n_links * row_h + closure_h + 15.0)
+    row_h = 20.0
+    closure_h = 24.0
+    header_pad = 16.0
+    draw_height = max(65.0, header_pad + n_links * row_h + closure_h + 12.0)
 
     drawing = Drawing(draw_width, draw_height)
     # Background panel
@@ -390,12 +390,12 @@ def _build_1d_chain_drawing(chain: AssemblyChain, items: list[Item], width_mm: f
 
     # Origin line x=0
     x_origin_pt = to_pt_x(0.0)
-    origin_line = Line(x_origin_pt, 10, x_origin_pt, draw_height - 8)
+    origin_line = Line(x_origin_pt, 8, x_origin_pt, draw_height - 6)
     origin_line.strokeColor = colors.HexColor("#94a3b8")
     origin_line.strokeWidth = 0.8
     origin_line.strokeDashArray = [2, 2]
     drawing.add(origin_line)
-    drawing.add(String(x_origin_pt, draw_height - 12, "0 (Origine)", fontSize=6, fontName="Helvetica", fillColor=colors.HexColor("#64748b"), textAnchor="middle"))
+    drawing.add(String(x_origin_pt, draw_height - 10, "0", fontSize=5.5, fontName="Helvetica-Bold", fillColor=colors.HexColor("#64748b"), textAnchor="middle"))
 
     pos_color = colors.HexColor("#0284c7")  # Cyan/Blue for +
     neg_color = colors.HexColor("#ea580c")  # Orange/Red for -
@@ -403,7 +403,7 @@ def _build_1d_chain_drawing(chain: AssemblyChain, items: list[Item], width_mm: f
 
     # Draw chain links from top to bottom
     for idx, (it, start_x, end_x) in enumerate(segments):
-        y_pos = draw_height - header_pad - (idx + 1) * row_h + 6.0
+        y_pos = draw_height - header_pad - (idx + 1) * row_h + 5.0
         x1 = to_pt_x(start_x)
         x2 = to_pt_x(end_x)
 
@@ -411,12 +411,12 @@ def _build_1d_chain_drawing(chain: AssemblyChain, items: list[Item], width_mm: f
         # Horizontal vector bar
         vec_line = Line(x1, y_pos, x2, y_pos)
         vec_line.strokeColor = col
-        vec_line.strokeWidth = 2.2
+        vec_line.strokeWidth = 1.8
         drawing.add(vec_line)
 
         # Arrowhead at x2
-        arrow_len = 5.0
-        arrow_w = 3.0
+        arrow_len = 4.5
+        arrow_w = 2.5
         if it.orientation > 0:
             arrow = Polygon(points=[
                 x2, y_pos,
@@ -434,32 +434,33 @@ def _build_1d_chain_drawing(chain: AssemblyChain, items: list[Item], width_mm: f
         drawing.add(arrow)
 
         # Subtle vertical tick at start_x
-        tick = Line(x1, y_pos - 3, x1, y_pos + 3)
+        tick = Line(x1, y_pos - 2.5, x1, y_pos + 2.5)
         tick.strokeColor = col
-        tick.strokeWidth = 1.0
+        tick.strokeWidth = 0.8
         drawing.add(tick)
 
-        # Label above vector
+        # Label above vector (compact text & clamped to prevent overflow)
         mid_x = (x1 + x2) / 2.0
-        # Clamp text position to drawing bounds
-        mid_x = max(pad_left + 10, min(draw_width - pad_right - 10, mid_x))
+        # Clamp text position strictly within drawing bounds
+        margin_safe = 40.0
+        mid_x = max(margin_safe, min(draw_width - margin_safe, mid_x))
         sign_char = "+" if it.orientation > 0 else "-"
-        lbl = f"#{idx+1} {it.name[:18]} ({sign_char}{it.nominal:.2f} mm)"
-        drawing.add(String(mid_x, y_pos + 4.0, lbl, fontSize=7, fontName="Helvetica-Bold", fillColor=col, textAnchor="middle"))
+        lbl = f"#{idx+1} {it.name[:13]} ({sign_char}{it.nominal:.2f})"
+        drawing.add(String(mid_x, y_pos + 3.0, lbl, fontSize=6, fontName="Helvetica-Bold", fillColor=col, textAnchor="middle"))
 
     # Closure Game vector (J_nom) at the bottom
-    y_closure = 18.0
+    y_closure = 14.0
     x_c_start = to_pt_x(0.0)
     x_c_end = to_pt_x(current_x)
 
     c_line = Line(x_c_start, y_closure, x_c_end, y_closure)
     c_line.strokeColor = closure_color
-    c_line.strokeWidth = 2.5
+    c_line.strokeWidth = 2.0
     c_line.strokeDashArray = [3, 2]
     drawing.add(c_line)
 
-    c_arrow_len = 6.0
-    c_arrow_w = 3.5
+    c_arrow_len = 5.0
+    c_arrow_w = 3.0
     if current_x >= 0:
         c_arrow = Polygon(points=[
             x_c_end, y_closure,
@@ -479,11 +480,12 @@ def _build_1d_chain_drawing(chain: AssemblyChain, items: list[Item], width_mm: f
 
     # Closure text
     mid_c_x = (x_c_start + x_c_end) / 2.0
-    mid_c_x = max(pad_left + 20, min(draw_width - pad_right - 20, mid_c_x))
-    closure_lbl = f"FERMETURE : Jeu nominal J_nom = {current_x:+.4f} mm"
-    drawing.add(String(mid_c_x, y_closure + 5.0, closure_lbl, fontSize=7.5, fontName="Helvetica-Bold", fillColor=closure_color, textAnchor="middle"))
+    mid_c_x = max(55.0, min(draw_width - 55.0, mid_c_x))
+    closure_lbl = f"FERMETURE : J_nom = {current_x:+.3f} mm"
+    drawing.add(String(mid_c_x, y_closure + 3.5, closure_lbl, fontSize=6.5, fontName="Helvetica-Bold", fillColor=closure_color, textAnchor="middle"))
 
     return drawing
+
 
 
 def generate_multi_chain_pdf_report(
@@ -518,14 +520,14 @@ def generate_multi_chain_pdf_report(
     primary_color = colors.HexColor("#0284c7")
     dark_color = colors.HexColor("#0f172a")
 
-    title_style = ParagraphStyle("MultiTitle", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=18, leading=22, textColor=primary_color)
-    h2_style = ParagraphStyle("MultiH2", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=12, leading=16, textColor=dark_color, spaceBefore=10, spaceAfter=6)
-    h3_style = ParagraphStyle("MultiH3", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=10, leading=14, textColor=primary_color, spaceBefore=6, spaceAfter=4)
-    body_style = ParagraphStyle("MultiBody", parent=styles["Normal"], fontName="Helvetica", fontSize=9, leading=12, textColor=dark_color)
-    meta_label = ParagraphStyle("MultiMetaLabel", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=8, leading=10, textColor=colors.HexColor("#475569"))
-    meta_val = ParagraphStyle("MultiMetaVal", parent=styles["Normal"], fontName="Helvetica", fontSize=8, leading=10, textColor=dark_color)
-    cell_header = ParagraphStyle("MultiCellHeader", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=8, leading=10, textColor=colors.white, alignment=1)
-    cell_body = ParagraphStyle("MultiCellBody", parent=styles["Normal"], fontName="Helvetica", fontSize=8, leading=10, textColor=dark_color, alignment=1)
+    title_style = ParagraphStyle("MultiTitle", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=15, leading=18, textColor=primary_color)
+    h2_style = ParagraphStyle("MultiH2", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=10.5, leading=14, textColor=dark_color, spaceBefore=8, spaceAfter=4)
+    h3_style = ParagraphStyle("MultiH3", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=8.5, leading=11, textColor=primary_color, spaceBefore=5, spaceAfter=3)
+    body_style = ParagraphStyle("MultiBody", parent=styles["Normal"], fontName="Helvetica", fontSize=7.5, leading=10, textColor=dark_color)
+    meta_label = ParagraphStyle("MultiMetaLabel", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=7, leading=9, textColor=colors.HexColor("#475569"))
+    meta_val = ParagraphStyle("MultiMetaVal", parent=styles["Normal"], fontName="Helvetica", fontSize=7, leading=9, textColor=dark_color)
+    cell_header = ParagraphStyle("MultiCellHeader", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=6.8, leading=8.5, textColor=colors.white, alignment=1)
+    cell_body = ParagraphStyle("MultiCellBody", parent=styles["Normal"], fontName="Helvetica", fontSize=6.8, leading=8.5, textColor=dark_color, alignment=1)
 
     elements: list[Any] = []
 
@@ -601,9 +603,9 @@ def generate_multi_chain_pdf_report(
         Paragraph("ID", cell_header),
         Paragraph("J_nom (mm)", cell_header),
         Paragraph("Pire des Cas [Min ; Max] (mm)", cell_header),
+        Paragraph("Dispersion IT_WC (mm)", cell_header),
         Paragraph("Cible fonctionnelle", cell_header),
-        Paragraph("Verdict WC", cell_header),
-        Paragraph("Statistique RSS (3σ)", cell_header),
+        Paragraph("Verdict Pire des Cas", cell_header),
     ]
     sum_rows = [sum_headers]
 
@@ -614,20 +616,21 @@ def generate_multi_chain_pdf_report(
         else:
             t_str = "Non spécifiée"
 
+        it_wc_disp = status.result.worst_case_plus - status.result.worst_case_minus
         sum_rows.append([
             Paragraph(html.escape(status.name), cell_body),
             Paragraph(html.escape(status.chain_id), cell_body),
             Paragraph(f"{status.result.nominal:.4f}", cell_body),
             Paragraph(f"[{status.result.worst_case_minus:.3f} ; {status.result.worst_case_plus:.3f}]", cell_body),
+            Paragraph(f"{it_wc_disp:.3f}", cell_body),
             Paragraph(t_str, cell_body),
             Paragraph(f"<b>{html.escape(status.wc_status_label)}</b>", cell_body),
-            Paragraph(f"[{status.result.rss_minus:.3f} ; {status.result.rss_plus:.3f}]", cell_body),
         ])
 
     if len(sum_rows) == 1:
         sum_rows.append([Paragraph("<i>Aucune chaîne dans le projet</i>", cell_body)] * 7)
 
-    summary_table = Table(sum_rows, colWidths=[36 * mm, 20 * mm, 20 * mm, 36 * mm, 28 * mm, 22 * mm, 18 * mm])
+    summary_table = Table(sum_rows, colWidths=[38 * mm, 20 * mm, 20 * mm, 36 * mm, 24 * mm, 24 * mm, 18 * mm])
     summary_table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), dark_color),
         ("BOX", (0, 0), (-1, -1), 1, colors.HexColor("#94a3b8")),
@@ -705,24 +708,22 @@ def generate_multi_chain_pdf_report(
             ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
             ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
-            ("TOPPADDING", (0, 0), (-1, -1), 3),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+            ("TOPPADDING", (0, 0), (-1, -1), 2),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
         ]))
         elements.append(items_table)
         elements.append(Spacer(1, 4 * mm))
 
-        # Calculation Results (Worst-Case & RSS)
+        # Calculation Results (Worst-Case)
         if items:
             calc = ChainCalculator(items, target_min=chain.target_min, target_max=chain.target_max)
             result = calc.calculate()
             it_wc = sum(it.IT for it in items)
-            it_rss = (sum(it.IT ** 2 for it in items)) ** 0.5
             wc_comp = "CONFORME (GO)" if result.compliance.get("wc_compliant", True) else "NON CONFORME (NO-GO)"
-            rss_comp = "CONFORME (GO)" if result.compliance.get("rss_compliant", True) else "NON CONFORME (NO-GO)"
 
             res_data = [
                 [
-                    Paragraph("Méthode de cumul", cell_header),
+                    Paragraph("Méthode de calcul", cell_header),
                     Paragraph("Jeu Min (mm)", cell_header),
                     Paragraph("Jeu Moyen (mm)", cell_header),
                     Paragraph("Jeu Max (mm)", cell_header),
@@ -730,30 +731,22 @@ def generate_multi_chain_pdf_report(
                     Paragraph("Verdict Cible", cell_header),
                 ],
                 [
-                    Paragraph("<b>Pire des Cas (WC)</b>", cell_body),
+                    Paragraph("<b>Pire des Cas (Worst-Case)</b>", cell_body),
                     Paragraph(f"{result.worst_case_minus:.4f}", cell_body),
                     Paragraph(f"{result.mean:.4f}", cell_body),
                     Paragraph(f"{result.worst_case_plus:.4f}", cell_body),
                     Paragraph(f"{it_wc:.4f}", cell_body),
                     Paragraph(f"<b>{wc_comp}</b>", cell_body),
                 ],
-                [
-                    Paragraph("<b>Statistique (RSS 3σ)</b>", cell_body),
-                    Paragraph(f"{result.rss_minus:.4f}", cell_body),
-                    Paragraph(f"{result.mean:.4f}", cell_body),
-                    Paragraph(f"{result.rss_plus:.4f}", cell_body),
-                    Paragraph(f"{it_rss:.4f}", cell_body),
-                    Paragraph(f"<b>{rss_comp}</b>", cell_body),
-                ],
             ]
-            res_table = Table(res_data, colWidths=[40 * mm, 26 * mm, 28 * mm, 26 * mm, 26 * mm, 34 * mm])
+            res_table = Table(res_data, colWidths=[45 * mm, 26 * mm, 28 * mm, 26 * mm, 26 * mm, 29 * mm])
             res_table.setStyle(TableStyle([
                 ("BACKGROUND", (0, 0), (-1, 0), dark_color),
                 ("BOX", (0, 0), (-1, -1), 1, colors.HexColor("#94a3b8")),
                 ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
                 ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ("TOPPADDING", (0, 0), (-1, -1), 4),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ("TOPPADDING", (0, 0), (-1, -1), 2.5),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
             ]))
             elements.append(res_table)
 
