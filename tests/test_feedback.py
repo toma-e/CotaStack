@@ -119,6 +119,30 @@ class TestGitHubIssueIntegration:
         assert "Titre+Test" in url or "Titre%20Test" in url
         assert "labels=user-feedback%2Cenhancement" in url or "labels=user-feedback%2Cenhancement" in url or "labels=user-feedback" in url
 
+    def test_invalid_repo_raises_value_error(self):
+        invalid_repos = [
+            "evil.com",
+            "../secret/repo",
+            "https://github.com/org/repo",
+            "org/repo/extra",
+            "org//repo",
+            "repo_without_owner",
+            "",
+            "org/repo?param=value",
+            "org/repo#frag",
+            "org/repo\r\n",
+        ]
+        for inv in invalid_repos:
+            with pytest.raises(ValueError, match="Dépôt GitHub invalide"):
+                build_github_issue_url(title="T", body="B", repo=inv)
+
+            with pytest.raises(ValueError, match="Dépôt GitHub invalide"):
+                submit_github_issue(title="T", body="B", token="fake_token", repo=inv)
+
+        # Non-string repo type check
+        with pytest.raises(ValueError, match="chaîne de caractères"):
+            build_github_issue_url(title="T", body="B", repo=None)  # type: ignore
+
     def test_submit_github_issue_empty_token_raises(self):
         with pytest.raises(ValueError, match="jeton d'accès GitHub"):
             submit_github_issue("Titre", "Corps", token="")
