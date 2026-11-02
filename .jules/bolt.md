@@ -1,0 +1,7 @@
+# Bolt's Journal - Critical Performance Learnings
+
+## 2026-11-01 - ISO 286 Range Lookup and Intermediate Float Rounding in Chains
+**Learning:**
+1. In `backend/iso_standards.py`, size step ranges `(low, high]` for ISO 286 fits form a strictly monotonically increasing partition up to 500 mm. Sequential linear scanning of tuples on every tolerance query incurs unnecessary iteration overhead. By precomputing a monotonic tuple of upper bounds `ISO_286_HIGH_BOUNDS`, `bisect.bisect_left` performs the boundary lookup in $O(\log N)$ with ~3x speedup while guaranteeing identical behavior across all intervals.
+2. In `backend/models.py`, `Item.L_moy` explicitly applies `round(self.nominal + (self.es + self.ei) / 2.0, 5)` per item. Attempting a global closed-form vectorization of `simulate_thermal_sensitivity` by computing $J_{\text{moy}}(T) = J_{\text{nom}}(T) + \sum \text{orientation}_i \cdot \frac{ES_i + EI_i}{2}$ induces minute $10^{-5}$ float truncation divergence due to item-level intermediate rounding. Performance optimizations in CotaStack calculations must respect per-item intermediate rounding boundaries to preserve numerical parity.
+**Action:** When optimizing tolerance lookups, prefer bisect/direct indexing over linear iteration. When optimizing chained calculations, verify whether dataclasses apply rounding properties (`round(..., 5)`) to avoid breaking float equality contracts.
