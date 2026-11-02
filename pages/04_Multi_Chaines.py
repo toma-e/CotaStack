@@ -6,6 +6,7 @@ Interface ergonomique et visuelle enrichie pour les bureaux d'études.
 
 import html
 import os
+from datetime import date
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -17,6 +18,7 @@ from backend.multi_chain import (
     AssemblyChain,
     MultiChainProject,
 )
+from backend.report_generator import generate_multi_chain_pdf_report
 from backend.iso_standards import get_available_iso286_symbols, get_iso286_limits
 from backend.thermal import get_available_materials
 from backend.feedback import (
@@ -606,6 +608,14 @@ def main() -> None:
                         data=project.to_json(),
                         file_name=f"{project.name.lower().replace(' ', '_')}.cotastack_multi.json",
                         mime="application/json",
+                        use_container_width=True,
+                        disabled=is_empty_project,
+                    )
+                    st.download_button(
+                        label="📄 Télécharger la Note de Calcul (PDF)",
+                        data=generate_multi_chain_pdf_report(project),
+                        file_name=f"note_calcul_{project.name.lower().replace(' ', '_')}.pdf",
+                        mime="application/pdf",
                         use_container_width=True,
                         disabled=is_empty_project,
                     )
@@ -1264,6 +1274,36 @@ def main() -> None:
             st.dataframe(pd.DataFrame(sys_rows), use_container_width=True, hide_index=True)
         else:
             st.info("Aucune chaîne définie dans le projet.")
+
+        st.divider()
+        st.markdown("#### 📄 Exportation & Certification Documentaire (PDF A4)")
+        st.caption("Édition d'un rapport technique certifié avec cartouche d'identification, synthèse globale, tracés vectoriels 1D et tableaux des cotes.")
+
+        col_pdf1, col_pdf2 = st.columns([1, 1])
+        with col_pdf1:
+            pdf_title = st.text_input("Titre de l'étude / Système", value=project.name, key="multi_pdf_title")
+            pdf_author = st.text_input("Ingénieur d'études / BE", value="Bureau d'Études Mécanique", key="multi_pdf_author")
+        with col_pdf2:
+            pdf_rev = st.text_input("Indice de révision", value="A", key="multi_pdf_rev")
+            pdf_date = st.date_input("Date de certification", value=date.today(), key="multi_pdf_date")
+
+        pdf_meta = {
+            "title": pdf_title,
+            "author": pdf_author,
+            "revision": pdf_rev,
+            "date": str(pdf_date),
+        }
+        pdf_bytes = generate_multi_chain_pdf_report(project, pdf_meta)
+
+        st.download_button(
+            label="📄 Télécharger le Rapport Système Complet (PDF A4)",
+            data=pdf_bytes,
+            file_name=f"note_calcul_{project.name.lower().replace(' ', '_')}.pdf",
+            mime="application/pdf",
+            type="primary",
+            use_container_width=True,
+            disabled=is_empty_project,
+        )
 
     # -------------------------------------------------------------------------
     # Pied de page & Boîte à idées pour faire avancer le projet

@@ -23,6 +23,10 @@ from reportlab.platypus import (
 )
 
 from backend.models import Item, ChainResult
+from backend.calculator import ChainCalculator
+from backend.multi_chain import MultiChainProject, AssemblyChain
+from reportlab.graphics.shapes import Drawing, Line, String, Polygon, Rect, Group
+from reportlab.platypus import PageBreak
 
 
 def generate_pdf_report(
@@ -322,3 +326,473 @@ def generate_pdf_report(
 
     doc.build(elements)
     return buffer.getvalue()
+
+# ---------------------------------------------------------------------------
+# Multi-Chain PDF generation utilities
+# ---------------------------------------------------------------------------
+
+def _build_1d_chain_drawing(chain: AssemblyChain, items: list[Item], width_mm: float = 180.0) -> Drawing:
+    """Create a ReportLab Drawing representing the 1-D vector stack-up of chain.
+
+    Uses normalized bounding-box projection so all dimension vectors, the origin x=0,
+    and the closure vector J_nom stay strictly within the printable boundaries.
+    """
+    mm_to_pt = 72.0 / 25.4  # 1 mm = 2.83464567 pt
+    draw_width = width_mm * mm_to_pt
+
+    if not items:
+        # Graceful empty drawing
+        draw_height = 40.0
+        d = Drawing(draw_width, draw_height)
+        d.add(Rect(0, 0, draw_width, draw_height, fillColor=colors.HexColor("#f8fafc"), strokeColor=colors.HexColor("#cbd5e1"), strokeWidth=0.5, rx=3, ry=3))
+        d.add(String(draw_width / 2, 16, "Aucun maillon dans cette chaîne dimensionnelle.", fontSize=8, fontName="Helvetica-Oblique", fillColor=colors.HexColor("#64748b"), textAnchor="middle"))
+        return d
+
+    # 1. Compute cumulative coordinates
+    current_x = 0.0
+    segments = []
+    points = [0.0]
+
+    for it in items:
+        start_x = current_x
+        step = it.orientation * it.nominal
+        end_x = start_x + step
+        current_x = end_x
+        segments.append((it, start_x, end_x))
+        points.extend([start_x, end_x])
+
+    points.append(current_x)
+
+    x_min = min(points)
+    x_max = max(points)
+    span = x_max - x_min
+    if span <= 1e-9:
+        span = 1.0
+
+    # Margins inside drawing
+    pad_left = 40.0
+    pad_right = 40.0
+    plot_w = max(100.0, draw_width - pad_left - pad_right)
+
+    def to_pt_x(val: float) -> float:
+        return pad_left + ((val - x_min) / span) * plot_w
+
+    # Vertical sizing
+    n_links = len(items)
+    row_h = 24.0
+    closure_h = 28.0
+    header_pad = 18.0
+    draw_height = max(70.0, header_pad + n_links * row_h + closure_h + 15.0)
+
+    drawing = Drawing(draw_width, draw_height)
+    # Background panel
+    drawing.add(Rect(0, 0, draw_width, draw_height, fillColor=colors.HexColor("#f8fafc"), strokeColor=colors.HexColor("#cbd5e1"), strokeWidth=0.8, rx=4, ry=4))
+
+    # Origin line x=0
+    x_origin_pt = to_pt_x(0.0)
+    origin_line = Line(x_origin_pt, 10, x_origin_pt, draw_height - 8)
+    origin_line.strokeColor = colors.HexColor("#94a3b8")
+    origin_line.strokeWidth = 0.8
+    origin_line.strokeDashArray = [2, 2]
+    drawing.add(origin_line)
+    drawing.add(String(x_origin_pt, draw_height - 12, "0 (Origine)", fontSize=6, fontName="Helvetica", fillColor=colors.HexColor("#64748b"), textAnchor="middle"))
+
+    pos_color = colors.HexColor("#0284c7")  # Cyan/Blue for +
+    neg_color = colors.HexColor("#ea580c")  # Orange/Red for -
+    closure_color = colors.HexColor("#059669")  # Emerald Green for closure
+
+    # Draw chain links from top to bottom
+    for idx, (it, start_x, end_x) in enumerate(segments):
+        y_pos = draw_height - header_pad - (idx + 1) * row_h + 6.0
+        x1 = to_pt_x(start_x)
+        x2 = to_pt_x(end_x)
+
+        col = pos_color if it.orientation > 0 else neg_color
+        # Horizontal vector bar
+        vec_line = Line(x1, y_pos, x2, y_pos)
+        vec_line.strokeColor = col
+        vec_line.strokeWidth = 2.2
+        drawing.add(vec_line)
+
+        # Arrowhead at x2
+        arrow_len = 5.0
+        arrow_w = 3.0
+        if it.orientation > 0:
+            arrow = Polygon(points=[
+                x2, y_pos,
+                x2 - arrow_len, y_pos + arrow_w,
+                x2 - arrow_len, y_pos - arrow_w,
+            ])
+        else:
+            arrow = Polygon(points=[
+                x2, y_pos,
+                x2 + arrow_len, y_pos + arrow_w,
+                x2 + arrow_len, y_pos - arrow_w,
+            ])
+        arrow.fillColor = col
+        arrow.strokeColor = col
+        drawing.add(arrow)
+
+        # Subtle vertical tick at start_x
+        tick = Line(x1, y_pos - 3, x1, y_pos + 3)
+        tick.strokeColor = col
+        tick.strokeWidth = 1.0
+        drawing.add(tick)
+
+        # Label above vector
+        mid_x = (x1 + x2) / 2.0
+        # Clamp text position to drawing bounds
+        mid_x = max(pad_left + 10, min(draw_width - pad_right - 10, mid_x))
+        sign_char = "+" if it.orientation > 0 else "-"
+        lbl = f"#{idx+1} {it.name[:18]} ({sign_char}{it.nominal:.2f} mm)"
+        drawing.add(String(mid_x, y_pos + 4.0, lbl, fontSize=7, fontName="Helvetica-Bold", fillColor=col, textAnchor="middle"))
+
+    # Closure Game vector (J_nom) at the bottom
+    y_closure = 18.0
+    x_c_start = to_pt_x(0.0)
+    x_c_end = to_pt_x(current_x)
+
+    c_line = Line(x_c_start, y_closure, x_c_end, y_closure)
+    c_line.strokeColor = closure_color
+    c_line.strokeWidth = 2.5
+    c_line.strokeDashArray = [3, 2]
+    drawing.add(c_line)
+
+    c_arrow_len = 6.0
+    c_arrow_w = 3.5
+    if current_x >= 0:
+        c_arrow = Polygon(points=[
+            x_c_end, y_closure,
+            x_c_end - c_arrow_len, y_closure + c_arrow_w,
+            x_c_end - c_arrow_len, y_closure - c_arrow_w,
+        ])
+    else:
+        c_arrow = Polygon(points=[
+            x_c_end, y_closure,
+            x_c_end + c_arrow_len, y_closure + c_arrow_w,
+            x_c_end + c_arrow_len, y_closure - c_arrow_w,
+        ])
+
+    c_arrow.fillColor = closure_color
+    c_arrow.strokeColor = closure_color
+    drawing.add(c_arrow)
+
+    # Closure text
+    mid_c_x = (x_c_start + x_c_end) / 2.0
+    mid_c_x = max(pad_left + 20, min(draw_width - pad_right - 20, mid_c_x))
+    closure_lbl = f"FERMETURE : Jeu nominal J_nom = {current_x:+.4f} mm"
+    drawing.add(String(mid_c_x, y_closure + 5.0, closure_lbl, fontSize=7.5, fontName="Helvetica-Bold", fillColor=closure_color, textAnchor="middle"))
+
+    return drawing
+
+
+def generate_multi_chain_pdf_report(
+    project: MultiChainProject,
+    project_metadata: dict[str, Any] | None = None,
+) -> bytes:
+    """Generate a complete multi-chain A4 PDF report as raw bytes.
+
+    Includes:
+    1. Cartouche & project identification.
+    2. Global system summary (KPIs, shared pivot parts).
+    3. Global chains summary table.
+    4. Detailed technical sections per chain (1D vector drawing, items table, WC & RSS results).
+    5. Quality assurance visa & legal disclaimer.
+    """
+    meta = project_metadata or {}
+    proj_title = html.escape(str(meta.get("title", project.name or "Système Multi-Chaînes")))
+    author = html.escape(str(meta.get("author", "Bureau d'Études Mécanique")))
+    revision = html.escape(str(meta.get("revision", "A")))
+    today_str = html.escape(str(meta.get("date", str(date.today()))))
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        leftMargin=15 * mm,
+        rightMargin=15 * mm,
+        topMargin=15 * mm,
+        bottomMargin=15 * mm,
+    )
+    styles = getSampleStyleSheet()
+    primary_color = colors.HexColor("#0284c7")
+    dark_color = colors.HexColor("#0f172a")
+
+    title_style = ParagraphStyle("MultiTitle", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=18, leading=22, textColor=primary_color)
+    h2_style = ParagraphStyle("MultiH2", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=12, leading=16, textColor=dark_color, spaceBefore=10, spaceAfter=6)
+    h3_style = ParagraphStyle("MultiH3", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=10, leading=14, textColor=primary_color, spaceBefore=6, spaceAfter=4)
+    body_style = ParagraphStyle("MultiBody", parent=styles["Normal"], fontName="Helvetica", fontSize=9, leading=12, textColor=dark_color)
+    meta_label = ParagraphStyle("MultiMetaLabel", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=8, leading=10, textColor=colors.HexColor("#475569"))
+    meta_val = ParagraphStyle("MultiMetaVal", parent=styles["Normal"], fontName="Helvetica", fontSize=8, leading=10, textColor=dark_color)
+    cell_header = ParagraphStyle("MultiCellHeader", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=8, leading=10, textColor=colors.white, alignment=1)
+    cell_body = ParagraphStyle("MultiCellBody", parent=styles["Normal"], fontName="Helvetica", fontSize=8, leading=10, textColor=dark_color, alignment=1)
+
+    elements: list[Any] = []
+
+    # 1. Header & Cartouche
+    elements.append(Paragraph(f"📐 CotaStack — {proj_title}", title_style))
+    elements.append(Paragraph("Dossier de Tolérancement Système Multi-Chaînes 1D — Conforme ISO GPS", body_style))
+    elements.append(Spacer(1, 6 * mm))
+
+    cartouche_data = [
+        [
+            Paragraph("Projet Système :", meta_label),
+            Paragraph(f"<b>{proj_title}</b>", meta_val),
+            Paragraph("Indice Rév. :", meta_label),
+            Paragraph(f"<b>{revision}</b>", meta_val),
+        ],
+        [
+            Paragraph("Auteur / BE :", meta_label),
+            Paragraph(author, meta_val),
+            Paragraph("Date d'édition :", meta_label),
+            Paragraph(today_str, meta_val),
+        ],
+    ]
+    cartouche_table = Table(cartouche_data, colWidths=[30 * mm, 60 * mm, 25 * mm, 65 * mm])
+    cartouche_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#f8fafc")),
+        ("BOX", (0, 0), (-1, -1), 1, colors.HexColor("#cbd5e1")),
+        ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]))
+    elements.append(cartouche_table)
+    elements.append(Spacer(1, 6 * mm))
+
+    # 2. System Global Health Summary
+    elements.append(Paragraph("1. Synthèse globale du système mécanique", h2_style))
+    summary = project.get_system_summary()
+
+    pivot_str = ", ".join(summary.critical_pivot_parts) if summary.critical_pivot_parts else "Aucune (chaînes découplées)"
+    wc_status_str = f"{summary.wc_compliant_count} / {summary.total_chains} conformes"
+    nok_str = f"{summary.non_compliant_count} chaîne(s)"
+
+    kpi_data = [
+        [
+            Paragraph("Total chaînes d'assemblage :", meta_label),
+            Paragraph(f"<b>{summary.total_chains}</b>", meta_val),
+            Paragraph("Chaînes conformes Pire des Cas :", meta_label),
+            Paragraph(f"<b>{wc_status_str}</b>", meta_val),
+        ],
+        [
+            Paragraph("Chaînes critiques non-conformes :", meta_label),
+            Paragraph(f"<font color='#dc2626'><b>{nok_str}</b></font>" if summary.non_compliant_count > 0 else "<b>0 (100% GO)</b>", meta_val),
+            Paragraph("Pièces pivots partagées :", meta_label),
+            Paragraph(html.escape(pivot_str), meta_val),
+        ],
+    ]
+    kpi_table = Table(kpi_data, colWidths=[45 * mm, 45 * mm, 45 * mm, 45 * mm])
+    kpi_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#f1f5f9")),
+        ("BOX", (0, 0), (-1, -1), 1, colors.HexColor("#cbd5e1")),
+        ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]))
+    elements.append(kpi_table)
+    elements.append(Spacer(1, 5 * mm))
+
+    # 3. All-Chains Summary Table
+    elements.append(Paragraph("Tableau récapitulatif des chaînes d'assemblage", h3_style))
+    sum_headers = [
+        Paragraph("Chaîne", cell_header),
+        Paragraph("ID", cell_header),
+        Paragraph("J_nom (mm)", cell_header),
+        Paragraph("Pire des Cas [Min ; Max] (mm)", cell_header),
+        Paragraph("Cible fonctionnelle", cell_header),
+        Paragraph("Verdict WC", cell_header),
+        Paragraph("Statistique RSS (3σ)", cell_header),
+    ]
+    sum_rows = [sum_headers]
+
+    for status in summary.chains_status:
+        c = project.get_chain(status.chain_id)
+        if c.target_min is not None or c.target_max is not None:
+            t_str = f"[{c.target_min if c.target_min is not None else '-∞'} ; {c.target_max if c.target_max is not None else '+∞'}]"
+        else:
+            t_str = "Non spécifiée"
+
+        sum_rows.append([
+            Paragraph(html.escape(status.name), cell_body),
+            Paragraph(html.escape(status.chain_id), cell_body),
+            Paragraph(f"{status.result.nominal:.4f}", cell_body),
+            Paragraph(f"[{status.result.worst_case_minus:.3f} ; {status.result.worst_case_plus:.3f}]", cell_body),
+            Paragraph(t_str, cell_body),
+            Paragraph(f"<b>{html.escape(status.wc_status_label)}</b>", cell_body),
+            Paragraph(f"[{status.result.rss_minus:.3f} ; {status.result.rss_plus:.3f}]", cell_body),
+        ])
+
+    if len(sum_rows) == 1:
+        sum_rows.append([Paragraph("<i>Aucune chaîne dans le projet</i>", cell_body)] * 7)
+
+    summary_table = Table(sum_rows, colWidths=[36 * mm, 20 * mm, 20 * mm, 36 * mm, 28 * mm, 22 * mm, 18 * mm])
+    summary_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), dark_color),
+        ("BOX", (0, 0), (-1, -1), 1, colors.HexColor("#94a3b8")),
+        ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
+        ("TOPPADDING", (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+    ]))
+    elements.append(summary_table)
+
+    # 4. Detailed Sections for Each Chain
+    elements.append(PageBreak())
+
+    for idx_chain, (c_id, chain) in enumerate(project.chains.items(), start=1):
+        elements.append(Paragraph(f"2.{idx_chain} Chaîne : {html.escape(chain.name)} [{html.escape(chain.id)}]", h2_style))
+
+        if chain.description:
+            elements.append(Paragraph(f"<i>Description : {html.escape(chain.description)}</i>", body_style))
+            elements.append(Spacer(1, 2 * mm))
+
+        # Target specification
+        if chain.target_min is not None or chain.target_max is not None:
+            t_min_str = f"{chain.target_min:.3f} mm" if chain.target_min is not None else "-∞"
+            t_max_str = f"{chain.target_max:.3f} mm" if chain.target_max is not None else "+∞"
+            elements.append(Paragraph(f"<b>Spécification fonctionnelle cible :</b> Jeu requis &isin; [{t_min_str} ; {t_max_str}]", body_style))
+            elements.append(Spacer(1, 3 * mm))
+
+        # Resolve items
+        items = project.resolve_chain_items(chain.id) if chain.links else []
+
+        # Vector stack diagram (Drawing)
+        elements.append(Paragraph("<b>Tracé vectoriel 1D de la boucle de tolérance :</b>", h3_style))
+        drawing = _build_1d_chain_drawing(chain, items)
+        elements.append(drawing)
+        elements.append(Spacer(1, 4 * mm))
+
+        # Table of dimensions (items)
+        elements.append(Paragraph("<b>Tableau des cotes et maillons dimensionnels :</b>", h3_style))
+        item_headers = [
+            Paragraph("Repère / Cote", cell_header),
+            Paragraph("Sens", cell_header),
+            Paragraph("Nominal (mm)", cell_header),
+            Paragraph("EI (mm)", cell_header),
+            Paragraph("ES (mm)", cell_header),
+            Paragraph("IT (mm)", cell_header),
+            Paragraph("Cote moy. (mm)", cell_header),
+            Paragraph("Matériau", cell_header),
+        ]
+        item_rows = [item_headers]
+
+        for it in items:
+            sign_str = "+" if it.orientation > 0 else "-"
+            mat_str = it.material or "Acier"
+            safe_name = html.escape(str(it.name))
+            safe_mat = html.escape(str(mat_str.split()[0]))
+            item_rows.append([
+                Paragraph(safe_name, cell_body),
+                Paragraph(sign_str, cell_body),
+                Paragraph(f"{it.nominal:.4f}", cell_body),
+                Paragraph(f"{it.ei:+.4f}", cell_body),
+                Paragraph(f"{it.es:+.4f}", cell_body),
+                Paragraph(f"{it.IT:.4f}", cell_body),
+                Paragraph(f"{it.L_moy:.4f}", cell_body),
+                Paragraph(safe_mat, cell_body),
+            ])
+
+        if not items:
+            item_rows.append([Paragraph("<i>Aucun maillon dans cette chaîne</i>", cell_body)] * 8)
+
+        items_table = Table(item_rows, colWidths=[36 * mm, 12 * mm, 22 * mm, 18 * mm, 18 * mm, 18 * mm, 24 * mm, 32 * mm])
+        items_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), primary_color),
+            ("BOX", (0, 0), (-1, -1), 1, colors.HexColor("#94a3b8")),
+            ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
+            ("TOPPADDING", (0, 0), (-1, -1), 3),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+        ]))
+        elements.append(items_table)
+        elements.append(Spacer(1, 4 * mm))
+
+        # Calculation Results (Worst-Case & RSS)
+        if items:
+            calc = ChainCalculator(items, target_min=chain.target_min, target_max=chain.target_max)
+            result = calc.calculate()
+            it_wc = sum(it.IT for it in items)
+            it_rss = (sum(it.IT ** 2 for it in items)) ** 0.5
+            wc_comp = "CONFORME (GO)" if result.compliance.get("wc_compliant", True) else "NON CONFORME (NO-GO)"
+            rss_comp = "CONFORME (GO)" if result.compliance.get("rss_compliant", True) else "NON CONFORME (NO-GO)"
+
+            res_data = [
+                [
+                    Paragraph("Méthode de cumul", cell_header),
+                    Paragraph("Jeu Min (mm)", cell_header),
+                    Paragraph("Jeu Moyen (mm)", cell_header),
+                    Paragraph("Jeu Max (mm)", cell_header),
+                    Paragraph("IT Résultant (mm)", cell_header),
+                    Paragraph("Verdict Cible", cell_header),
+                ],
+                [
+                    Paragraph("<b>Pire des Cas (WC)</b>", cell_body),
+                    Paragraph(f"{result.worst_case_minus:.4f}", cell_body),
+                    Paragraph(f"{result.mean:.4f}", cell_body),
+                    Paragraph(f"{result.worst_case_plus:.4f}", cell_body),
+                    Paragraph(f"{it_wc:.4f}", cell_body),
+                    Paragraph(f"<b>{wc_comp}</b>", cell_body),
+                ],
+                [
+                    Paragraph("<b>Statistique (RSS 3σ)</b>", cell_body),
+                    Paragraph(f"{result.rss_minus:.4f}", cell_body),
+                    Paragraph(f"{result.mean:.4f}", cell_body),
+                    Paragraph(f"{result.rss_plus:.4f}", cell_body),
+                    Paragraph(f"{it_rss:.4f}", cell_body),
+                    Paragraph(f"<b>{rss_comp}</b>", cell_body),
+                ],
+            ]
+            res_table = Table(res_data, colWidths=[40 * mm, 26 * mm, 28 * mm, 26 * mm, 26 * mm, 34 * mm])
+            res_table.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, 0), dark_color),
+                ("BOX", (0, 0), (-1, -1), 1, colors.HexColor("#94a3b8")),
+                ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ]))
+            elements.append(res_table)
+
+        # PageBreak between chains
+        elements.append(PageBreak())
+
+    # 5. Quality Visa & Legal Disclaimer (Final Page)
+    elements.append(Paragraph("Visa et Approbation Qualité", h2_style))
+    approb_data = [
+        [
+            Paragraph("<b>Établi par :</b>", meta_label),
+            Paragraph("<b>Vérifié par (Projet) :</b>", meta_label),
+            Paragraph("<b>Approuvé par (Qualité) :</b>", meta_label),
+        ],
+        [
+            Paragraph(f"<br/><br/>{author}<br/>Signature :", body_style),
+            Paragraph("<br/><br/>Responsable Bureau d'Études :<br/>Signature :", body_style),
+            Paragraph("<br/><br/>Assurance Qualité & Conformité :<br/>Signature :", body_style),
+        ],
+    ]
+    approb_table = Table(approb_data, colWidths=[60 * mm, 60 * mm, 60 * mm])
+    approb_table.setStyle(TableStyle([
+        ("BOX", (0, 0), (-1, -1), 1, colors.HexColor("#94a3b8")),
+        ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f1f5f9")),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]))
+    elements.append(approb_table)
+
+    elements.append(Spacer(1, 6 * mm))
+    elements.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#cbd5e1"), spaceAfter=4))
+    elements.append(Paragraph(
+        "<i>Document édité par la plateforme CotaStack. Outil d'aide à la conception et au tolérancement mécanique 1D. "
+        "L'utilisateur demeure seul responsable de la validation technique et de la conformité dimensionnelle avant fabrication.</i>",
+        meta_label,
+    ))
+
+    doc.build(elements)
+    return buffer.getvalue()
+
+

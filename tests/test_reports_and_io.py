@@ -4,7 +4,12 @@ import pytest
 from backend.models import Item
 from backend.calculator import ChainCalculator
 from backend.project_io import serialize_project, deserialize_project
-from backend.report_generator import generate_pdf_report
+from backend.report_generator import (
+    generate_pdf_report,
+    generate_multi_chain_pdf_report,
+    _build_1d_chain_drawing,
+)
+from backend.multi_chain import MultiChainProject, CatalogPart, AssemblyChain, ChainLink
 
 
 class TestProjectIO:
@@ -75,7 +80,7 @@ class TestProjectIO:
 
 
 class TestPDFReportGenerator:
-    """Tests for PDF report generation."""
+    """Tests for single-chain PDF report generation."""
 
     def test_pdf_generation_basic(self) -> None:
         items = [
@@ -110,7 +115,6 @@ class TestPDFReportGenerator:
         calc = ChainCalculator(items)
         res = calc.calculate()
 
-        # Metadata with unclosed tags and XML entities that would cause ReportLab parse errors
         meta = {
             "title": "Projet <Test> & <Unclosed Tag",
             "author": "Ingénieur <BE> & 'Qualité'",
@@ -145,3 +149,105 @@ class TestPDFReportGenerator:
 
         assert len(pdf_bytes) > 1000
         assert pdf_bytes.startswith(b"%PDF-")
+
+
+class TestMultiChainPDFReport:
+    """Tests for multi-chain A4 PDF report generation and vector drawing."""
+
+    def test_generate_multi_chain_pdf_nominal(self) -> None:
+        proj = MultiChainProject(name="Boîte de Transmission Robotique", description="Système réducteur d'axe")
+        p1 = CatalogPart(id="CARTER_01", name="Carter usiné", nominal=120.0, es=0.08, ei=-0.08, material="Aluminium (alliage 6000/7000)")
+        p2 = CatalogPart(id="ARBRE_01", name="Arbre primaire", nominal=118.0, es=0.04, ei=-0.04, material="Acier (standard)")
+        p3 = CatalogPart(id="ROULEMENT_01", name="Roulement à billes", nominal=10.0, es=0.02, ei=-0.02, material="Acier trempé 100Cr6")
+        proj.add_part(p1)
+        proj.add_part(p2)
+        proj.add_part(p3)
+
+        c1 = AssemblyChain(id="JEU_AXIAL", name="Jeu axial arbre-carter", description="Jeu fonctionnel de liberté axiale", target_min=0.5, target_max=2.5)
+        c1.links.append(ChainLink(orientation=1, part_id="CARTER_01"))
+        c1.links.append(ChainLink(orientation=-1, part_id="ARBRE_01"))
+        c1.links.append(ChainLink(orientation=-1, custom_name="Rondelle calage", local_nominal=1.0, local_es=0.01, local_ei=-0.01))
+        proj.add_chain(c1)
+
+        c2 = AssemblyChain(id="JEU_LOGEMENT", name="Guidage roulement", target_min=0.0, target_max=0.1)
+        c2.links.append(ChainLink(orientation=1, part_id="CARTER_01", scale_factor=0.5))
+        c2.links.append(ChainLink(orientation=-1, part_id="ROULEMENT_01"))
+        proj.add_chain(c2)
+
+        pdf_bytes = generate_multi_chain_pdf_report(
+            proj,
+            project_metadata={
+                "title": "Étude Tolérancement Réducteur",
+                "author": "Ingénieur R&D Mécanique",
+                "revision": "B",
+                "date": "2026-11-02",
+            },
+        )
+
+        assert isinstance(pdf_bytes, bytes)
+        assert len(pdf_bytes) > 2000
+        assert pdf_bytes.startswith(b"%PDF-")
+
+    def test_generate_multi_chain_pdf_empty_project(self) -> None:
+        proj = MultiChainProject(name="Projet Vierge")
+        pdf_bytes = generate_multi_chain_pdf_report(proj)
+        assert isinstance(pdf_bytes, bytes)
+        assert len(pdf_bytes) > 1000
+        assert pdf_bytes.startswith(b"%PDF-")
+
+    def test_generate_multi_chain_pdf_empty_chain_and_partial_links(self) -> None:
+        proj = MultiChainProject(name="Projet Chaîne Vide")
+        c_empty = AssemblyChain(id="EMPTY_C", name="Chaîne sans maillon", description="Chaîne en cours de saisie")
+        proj.add_chain(c_empty)
+
+        # Chaîne avec cote locale
+        c_local = AssemblyChain(id="LOCAL_C", name="Chaîne cote locale")
+        c_local.links.append(ChainLink(orientation=1, custom_name="Cote directe", local_nominal=10.0, local_es=0.1, local_ei=-0.1))
+        proj.add_chain(c_local)
+
+        pdf_bytes = generate_multi_chain_pdf_report(proj)
+        assert isinstance(pdf_bytes, bytes)
+        assert len(pdf_bytes) > 1000
+        assert pdf_bytes.startswith(b"%PDF-")
+
+    def test_generate_multi_chain_pdf_special_characters_escaping(self) -> None:
+        proj = MultiChainProject(name="Projet <Système> & \"Spécial\"")
+        p = CatalogPart(id="P_SPEC", name="Pièce <XSS> & Inox", nominal=20.0, es=0.1, ei=-0.1)
+        proj.add_part(p)
+
+        c = AssemblyChain(id="C_SPEC", name="Chaîne <T1> & 'T2'", description="Desc avec <balise> & ampersand")
+        c.links.append(ChainLink(orientation=1, part_id="P_SPEC", custom_name="Cote <A&B>"))
+        proj.add_chain(c)
+
+        pdf_bytes = generate_multi_chain_pdf_report(
+            proj,
+            project_metadata={
+                "title": "Titre <Dangereux> & 'XML'",
+                "author": "Auteur & <BE>",
+                "revision": "Rév <1.0>",
+                "date": "2026-11-02",
+            },
+        )
+        assert isinstance(pdf_bytes, bytes)
+        assert pdf_bytes.startswith(b"%PDF-")
+
+    def test_build_1d_chain_drawing_edge_cases(self) -> None:
+        chain = AssemblyChain(id="C1", name="Test")
+        # 1. Empty items
+        d_empty = _build_1d_chain_drawing(chain, [])
+        assert d_empty.height == 40.0
+
+        # 2. Items resulting in negative closure game
+        items_neg = [
+            Item(name="A", nominal=10.0, ei=-0.1, es=0.1, orientation=1),
+            Item(name="B", nominal=15.0, ei=-0.1, es=0.1, orientation=-1),
+        ]
+        d_neg = _build_1d_chain_drawing(chain, items_neg)
+        assert d_neg.height > 50.0
+
+        # 3. Items resulting in zero span
+        items_zero = [
+            Item(name="Zero1", nominal=0.0, ei=0.0, es=0.0, orientation=1),
+        ]
+        d_zero = _build_1d_chain_drawing(chain, items_zero)
+        assert d_zero.height > 50.0
