@@ -45,7 +45,7 @@ class AllocationResult:
 def _compute_iso_factor(nominal: float) -> float:
     """Compute standard ISO tolerance factor i = 0.45 * D^(1/3) + 0.001 * D (µm unit)."""
     d = max(0.5, nominal)
-    return 0.45 * (d ** (1.0 / 3.0)) + 0.001 * d
+    return float(0.45 * (d ** (1.0 / 3.0)) + 0.001 * d)
 
 
 def allocate_tolerances(

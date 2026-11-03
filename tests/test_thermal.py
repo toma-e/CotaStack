@@ -110,3 +110,36 @@ class TestThermalSensitivity:
         items = [Item(name="Test", nominal=10.0, ei=-0.1, es=0.1)]
         with pytest.raises(ValueError, match="must be < t_max"):
             simulate_thermal_sensitivity(items, t_min=100.0, t_max=20.0)
+
+    def test_heterogeneous_steel_aluminum_asymmetric_assembly(self) -> None:
+        """Industrial test case: differential thermal expansion with Steel and Aluminum and strong asymmetric tolerances."""
+        # Steel shaft in an Aluminum housing
+        # Aluminum housing: 50.0 +0.100 / -0.020 (orientation +1)
+        # Steel shaft: 49.8 +0.050 / -0.010 (orientation -1)
+        housing = Item(name="Logement_Alu", nominal=50.0, ei=-0.020, es=0.100, orientation=1, material="Aluminium (alliage 6000/7000)")
+        shaft = Item(name="Arbre_Acier", nominal=49.8, ei=-0.010, es=0.050, orientation=-1, material="Acier (standard)")
+        items = [housing, shaft]
+
+        # Reference at 20°C: nominal clearance is 50.0 - 49.8 = 0.200 mm
+        res_20 = calculate_thermal_chain(items, t_service=20.0, t_ref=20.0)
+        assert approx_equal(res_20.nominal_at_t, 0.200)
+        assert approx_equal(res_20.delta_j_nominal, 0.0)
+        assert approx_equal(res_20.items_detail[0]["nominal_at_t"], 50.0)
+        assert approx_equal(res_20.items_detail[1]["nominal_at_t"], 49.8)
+
+        # Heating to 120°C (delta_T = 100°C)
+        # Aluminum alpha = 23e-6, expansion = 50.0 * 23e-6 * 100 = 0.115 mm -> nominal = 50.115 mm
+        # Steel alpha = 11.5e-6, expansion = 49.8 * 11.5e-6 * 100 = 0.05727 mm -> nominal = 49.85727 mm
+        # Nominal clearance at 120°C increases: (50.115 - 49.85727) = 0.25773 mm
+        res_120 = calculate_thermal_chain(items, t_service=120.0, t_ref=20.0)
+        assert approx_equal(res_120.items_detail[0]["nominal_at_t"], 50.115)
+        assert approx_equal(res_120.items_detail[1]["nominal_at_t"], 49.85727)
+        assert approx_equal(res_120.nominal_at_t, 0.25773)
+        assert approx_equal(res_120.delta_j_nominal, 0.05773)
+
+        # Check calculated chain limits
+        # Cold nominal: 0.200, Hot nominal: 0.25773
+        # In expanded chain, WC limits shift by delta_j_nominal (+0.05773)
+        assert approx_equal(res_120.delta_j_nominal, 0.05773)
+        assert res_120.worst_case_minus_at_t < res_120.worst_case_plus_at_t
+        assert res_120.rss_minus_at_t < res_120.rss_plus_at_t

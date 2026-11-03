@@ -1,6 +1,7 @@
 """Data models for CotaStack tolerance chain calculations."""
 
 from dataclasses import dataclass, field
+import math
 from typing import Literal
 import uuid
 
@@ -17,6 +18,8 @@ class Item:
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
     def __post_init__(self) -> None:
+        if not (math.isfinite(self.nominal) and math.isfinite(self.es) and math.isfinite(self.ei)):
+            raise ValueError("Dimensions must be finite numbers")
         if self.es < self.ei:
             raise ValueError("es must be >= ei")
         if self.nominal < 0:
@@ -37,8 +40,18 @@ class Item:
         return self.es - self.ei
 
     @property
+    def half_it(self) -> float:
+        """Half of tolerance interval (IT/2)."""
+        return self.IT / 2.0
+
+    @property
     def L_moy(self) -> float:
         return self.nominal + (self.es + self.ei) / 2
+
+    @property
+    def mean_dimension(self) -> float:
+        """Alias for L_moy (ISO GPS mean dimension)."""
+        return self.L_moy
 
 
 @dataclass(slots=True)

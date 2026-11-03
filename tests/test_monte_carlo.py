@@ -102,3 +102,20 @@ class TestRunMonteCarlo:
         assert res_min_only.target_max is None
         assert res_min_only.cp is None
         assert res_min_only.cpk is None
+
+    def test_zero_dispersion_monte_carlo(self) -> None:
+        """Test with items having 0 tolerance: std_val is 0."""
+        zero_items = [
+            Item(name="A", nominal=5.0, ei=0.0, es=0.0, orientation=1),
+            Item(name="B", nominal=3.0, ei=0.0, es=0.0, orientation=-1),
+        ]
+        # Inside target
+        res_inside = run_monte_carlo(zero_items, num_simulations=500, target_min=1.0, target_max=3.0, seed=42)
+        assert res_inside.std_dev == 0.0
+        assert res_inside.cp == float("inf")
+        assert res_inside.cpk == float("inf")
+
+        # Outside target
+        res_outside = run_monte_carlo(zero_items, num_simulations=500, target_min=3.0, target_max=5.0, seed=42)
+        assert res_outside.cp == 0.0
+        assert res_outside.cpk == 0.0

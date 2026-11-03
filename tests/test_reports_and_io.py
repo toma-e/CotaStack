@@ -3,7 +3,7 @@
 import pytest
 from backend.models import Item
 from backend.calculator import ChainCalculator
-from backend.project_io import serialize_project, deserialize_project
+from backend.project_io import serialize_project, deserialize_project, ProjectImportError
 from backend.report_generator import (
     generate_pdf_report,
     generate_multi_chain_pdf_report,
@@ -134,6 +134,12 @@ class TestProjectIO:
         json_data = '{"format": "cotastack", "items": [{"name": "P1", "nominal": 10.0, "es": 0.1, "ei": -0.1, "distribution": "custom_hack"}]}'
         res = deserialize_project(json_data)
         assert res["distributions"]["P1"] == "normale"
+
+    def test_project_import_error_subclass(self) -> None:
+        """Verify that ProjectImportError is raised and is a subclass of ValueError."""
+        assert issubclass(ProjectImportError, ValueError)
+        with pytest.raises(ProjectImportError, match="Fichier JSON invalide"):
+            deserialize_project("invalid json {")
 
 
 class TestPDFReportGenerator:

@@ -132,12 +132,21 @@ def run_monte_carlo(
     cp: float | None = None
     cpk: float | None = None
 
-    if target_min is not None and target_max is not None and std_val > 0:
+    if target_min is not None and target_max is not None:
         tolerance_interval = target_max - target_min
-        cp = tolerance_interval / (6.0 * std_val)
-        cpu = (target_max - mean_val) / (3.0 * std_val)
-        cpl = (mean_val - target_min) / (3.0 * std_val)
-        cpk = min(cpu, cpl)
+        if std_val <= 1e-9:
+            # Zero or near-zero dispersion: virtually infinite capability if centered within targets
+            if target_min <= mean_val <= target_max:
+                cp = float("inf")
+                cpk = float("inf")
+            else:
+                cp = 0.0
+                cpk = 0.0
+        else:
+            cp = tolerance_interval / (6.0 * std_val)
+            cpu = (target_max - mean_val) / (3.0 * std_val)
+            cpl = (mean_val - target_min) / (3.0 * std_val)
+            cpk = min(cpu, cpl)
 
     # For fast frontend plotting, retain a 5,000-point representative subsample
     subsample_size = min(5000, num_simulations)

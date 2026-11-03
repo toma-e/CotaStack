@@ -13,6 +13,11 @@ from backend.models import Item
 COTASTACK_FORMAT_VERSION = "1.0"
 
 
+class ProjectImportError(ValueError):
+    """Exception raised when importing an invalid or corrupted .cotastack project."""
+    pass
+
+
 def serialize_project(
     items: list[Item],
     project_metadata: dict[str, Any] | None = None,
@@ -67,13 +72,13 @@ def deserialize_project(json_content: str) -> dict[str, Any]:
     try:
         data = json.loads(json_content)
     except json.JSONDecodeError as e:
-        raise ValueError(f"Fichier JSON invalide : {e}")
+        raise ProjectImportError(f"Fichier JSON invalide : {e}")
 
     if not isinstance(data, dict):
-        raise ValueError("Structure de fichier .cotastack invalide.")
+        raise ProjectImportError("Structure de fichier .cotastack invalide.")
 
     if data.get("format") != "cotastack":
-        raise ValueError("Le fichier fourni n'est pas un fichier de projet CotaStack valide.")
+        raise ProjectImportError("Le fichier fourni n'est pas un fichier de projet CotaStack valide.")
 
     raw_meta = data.get("metadata")
     metadata = raw_meta if isinstance(raw_meta, dict) else {}
@@ -86,7 +91,7 @@ def deserialize_project(json_content: str) -> dict[str, Any]:
 
     raw_items = data.get("items", [])
     if not isinstance(raw_items, list):
-        raise ValueError("La liste des maillons est invalide.")
+        raise ProjectImportError("La liste des maillons est invalide.")
 
     def _parse_target(val: Any) -> float | None:
         if val is None:
@@ -97,12 +102,12 @@ def deserialize_project(json_content: str) -> dict[str, Any]:
                 raise ValueError()
             return f
         except (ValueError, TypeError):
-            raise ValueError(f"Valeur de cible dimensionnelle invalide : {val}")
+            raise ProjectImportError(f"Valeur de cible dimensionnelle invalide : {val}")
 
     target_min = _parse_target(targets.get("target_min"))
     target_max = _parse_target(targets.get("target_max"))
     if target_min is not None and target_max is not None and target_min > target_max:
-        raise ValueError("target_min ne peut pas être strictement supérieur à target_max.")
+        raise ProjectImportError("target_min ne peut pas être strictement supérieur à target_max.")
 
     raw_t_serv = thermal.get("t_service", 20.0)
     try:
@@ -110,7 +115,7 @@ def deserialize_project(json_content: str) -> dict[str, Any]:
         if not math.isfinite(t_service) or t_service < -273.15:
             raise ValueError()
     except (ValueError, TypeError):
-        raise ValueError(f"Température de service invalide : {raw_t_serv}")
+        raise ProjectImportError(f"Température de service invalide : {raw_t_serv}")
 
     items: list[Item] = []
     distributions: dict[str, str] = {}
@@ -146,7 +151,7 @@ def deserialize_project(json_content: str) -> dict[str, Any]:
             items.append(item)
             distributions[name] = dist
         except (KeyError, ValueError, TypeError) as err:
-            raise ValueError(f"Erreur lors de la lecture du maillon {idx+1} : {err}")
+            raise ProjectImportError(f"Erreur lors de la lecture du maillon {idx+1} : {err}")
 
     return {
         "items": items,

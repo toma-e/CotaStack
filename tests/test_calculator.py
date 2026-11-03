@@ -3,7 +3,7 @@
 import math
 import pytest
 from backend.models import Item
-from backend.calculator import ChainCalculator
+from backend.calculator import ChainCalculator, calculate_cpk
 
 
 def approx_equal(a: float, b: float, rel_tol: float = 1e-9) -> bool:
@@ -38,7 +38,17 @@ class TestItemValidation:
         assert approx_equal(item.upper_limit, 20.1)
         assert approx_equal(item.lower_limit, 19.95)
         assert approx_equal(item.IT, 0.15)
+        assert approx_equal(item.half_it, 0.075)
         assert approx_equal(item.L_moy, 20.025)
+        assert approx_equal(item.mean_dimension, 20.025)
+
+    def test_invalid_non_finite_dimensions(self) -> None:
+        with pytest.raises(ValueError, match="Dimensions must be finite numbers"):
+            Item(name="Test", nominal=float("nan"), ei=-0.1, es=0.1)
+        with pytest.raises(ValueError, match="Dimensions must be finite numbers"):
+            Item(name="Test", nominal=10.0, ei=float("-inf"), es=0.1)
+        with pytest.raises(ValueError, match="Dimensions must be finite numbers"):
+            Item(name="Test", nominal=10.0, ei=-0.1, es=float("inf"))
 
 
 class TestChainCalculator:
@@ -286,3 +296,34 @@ class TestCompliance:
         assert res_c.compliance["wc_min_compliant"] is False
         assert res_c.compliance["wc_nominal_compliant"] is False
         assert res_c.compliance["wc_max_compliant"] is True
+
+
+class TestCalculateCpkHelper:
+    """Tests for the standalone calculate_cpk helper function."""
+
+    def test_calculate_cpk_nominal_case(self) -> None:
+        cpk = calculate_cpk(nominal_gap=10.0, lower_limit=9.0, upper_limit=11.0, sigma=0.25)
+        # cpu = (11 - 10) / (3 * 0.25) = 1.0 / 0.75 = 1.3333
+        assert approx_equal(cpk, 1.333333333)
+
+    def test_calculate_cpk_asymmetric_gap(self) -> None:
+        cpk = calculate_cpk(nominal_gap=10.5, lower_limit=9.0, upper_limit=11.0, sigma=0.2)
+        # cpu = (11 - 10.5) / 0.6 = 0.5 / 0.6 = 0.8333
+        # cpl = (10.5 - 9.0) / 0.6 = 1.5 / 0.6 = 2.5
+        assert approx_equal(cpk, 0.5 / 0.6)
+
+    def test_calculate_cpk_zero_sigma_inside(self) -> None:
+        cpk = calculate_cpk(nominal_gap=10.0, lower_limit=9.0, upper_limit=11.0, sigma=0.0)
+        assert cpk == float("inf")
+
+    def test_calculate_cpk_zero_sigma_outside(self) -> None:
+        cpk = calculate_cpk(nominal_gap=12.0, lower_limit=9.0, upper_limit=11.0, sigma=1e-12)
+        assert cpk == 0.0
+
+    def test_calculate_cpk_invalid_bounds(self) -> None:
+        with pytest.raises(ValueError, match="lower_limit must be <= upper_limit"):
+            calculate_cpk(nominal_gap=10.0, lower_limit=12.0, upper_limit=10.0, sigma=0.1)
+
+    def test_calculate_cpk_invalid_negative_sigma(self) -> None:
+        with pytest.raises(ValueError, match="sigma must be >= 0"):
+            calculate_cpk(nominal_gap=10.0, lower_limit=9.0, upper_limit=11.0, sigma=-0.1)

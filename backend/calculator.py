@@ -4,6 +4,36 @@ import math
 from backend.models import Item, ChainResult
 
 
+def calculate_cpk(
+    nominal_gap: float,
+    lower_limit: float,
+    upper_limit: float,
+    sigma: float,
+) -> float:
+    """Calculate process capability index Cpk with zero/near-zero dispersion guard.
+
+    Args:
+        nominal_gap: Mean or nominal gap value.
+        lower_limit: Lower specification limit (target_min).
+        upper_limit: Upper specification limit (target_max).
+        sigma: Standard deviation (dispersion).
+
+    Returns:
+        Cpk value, or float('inf') / 0.0 if sigma <= 1e-9.
+    """
+    if lower_limit > upper_limit:
+        raise ValueError("lower_limit must be <= upper_limit")
+    if sigma < 0:
+        raise ValueError("sigma must be >= 0")
+
+    if sigma <= 1e-9:
+        return float("inf") if lower_limit <= nominal_gap <= upper_limit else 0.0
+
+    cpu = (upper_limit - nominal_gap) / (3.0 * sigma)
+    cpl = (nominal_gap - lower_limit) / (3.0 * sigma)
+    return float(min(cpu, cpl))
+
+
 class ChainCalculator:
     """Performs worst-case and RSS (Root Sum Square) tolerance analysis."""
 
@@ -94,7 +124,7 @@ class ChainCalculator:
                 }
             )
         # Sort by contribution descending
-        contributions.sort(key=lambda x: x["contribution_pct"], reverse=True)
+        contributions.sort(key=lambda x: float(str(x["contribution_pct"])), reverse=True)
         return contributions
 
     def check_compliance(
