@@ -728,6 +728,7 @@ def main() -> None:
                             options=shared_p_options,
                             format_func=lambda x: f"{project.parts[x].name} [{x}] (utilisée dans {len(project.get_part_impact(x))} chaîne(s))",
                             key="sim_p_sel",
+                            help="Sélectionnez une pièce maîtresse pour simuler une modification de tolérances",
                         )
                     sim_part = project.parts[selected_sim_p]
                     impacted_chains = project.get_part_impact(selected_sim_p)
@@ -739,22 +740,58 @@ def main() -> None:
                         else:
                             st.write("Aucune chaîne liée.")
 
+                    st.caption(
+                        f"📏 Référence actuelle : Nominal = **{sim_part.nominal:.3f} mm** | "
+                        f"Tolérances = `[{sim_part.ei:+.4f} ; {sim_part.es:+.4f}] mm` | "
+                        f"IT initial = **{sim_part.IT:.4f} mm**"
+                    )
+
                     col_s1, col_s2, col_s3 = st.columns(3)
                     with col_s1:
-                        new_es = st.number_input("Nouveau ES (mm)", value=sim_part.es, step=0.005, format="%.4f", key="sim_new_es")
+                        new_es = st.number_input(
+                            "Nouveau ES (mm)",
+                            value=sim_part.es,
+                            step=0.005,
+                            format="%.4f",
+                            key=f"sim_new_es_{selected_sim_p}",
+                            help="Écart Supérieur (ES) en mm : cote maximale = nominal + ES",
+                        )
                     with col_s2:
-                        new_ei = st.number_input("Nouveau EI (mm)", value=sim_part.ei, step=0.005, format="%.4f", key="sim_new_ei")
+                        new_ei = st.number_input(
+                            "Nouveau EI (mm)",
+                            value=sim_part.ei,
+                            step=0.005,
+                            format="%.4f",
+                            key=f"sim_new_ei_{selected_sim_p}",
+                            help="Écart Inférieur (EI) en mm : cote minimale = nominal + EI",
+                        )
                     with col_s3:
-                        st.write("")
-                        st.write("")
-                        if st.button("🚀 Appliquer & Propager", type="primary", use_container_width=True, key="btn_apply_propagate"):
-                            if new_es < new_ei:
-                                st.error("Incohérence : ES doit être supérieur ou égal à EI.")
-                            else:
-                                sim_part.es = new_es
-                                sim_part.ei = new_ei
-                                st.toast(f"Propagation réussie sur {len(impacted_chains)} chaîne(s) !")
-                                st.rerun()
+                        sim_it = new_es - new_ei
+                        delta_it = sim_it - sim_part.IT
+                        delta_label = f"{delta_it:+.4f} mm" if abs(delta_it) > 1e-6 else "Identique"
+                        st.metric(
+                            "Dispersion IT simulée",
+                            f"{sim_it:.4f} mm",
+                            delta=delta_label,
+                            delta_color="inverse",
+                            help="Dispersion totale de fabrication IT = ES - EI. Un élargissement augmente le jeu Worst-Case.",
+                        )
+
+                    btn_lbl = f"🚀 Propager à {len(impacted_chains)} chaîne{'s' if len(impacted_chains) > 1 else ''} liée{'s' if len(impacted_chains) > 1 else ''}"
+                    if st.button(
+                        btn_lbl,
+                        type="primary",
+                        use_container_width=True,
+                        key=f"btn_apply_propagate_{selected_sim_p}",
+                        help="Met à jour la pièce au catalogue et propage le calcul sur toutes les chaînes d'assemblage",
+                    ):
+                        if new_es < new_ei:
+                            st.error("Incohérence dimensionnelle : ES doit être supérieur ou égal à EI (ES ≥ EI).")
+                        else:
+                            sim_part.es = new_es
+                            sim_part.ei = new_ei
+                            st.toast(f"Propagation réussie sur {len(impacted_chains)} chaîne(s) !", icon="⚡")
+                            st.rerun()
 
         with col_cat_right:
             # 3. Add / Edit Part Form in clear card

@@ -39,17 +39,16 @@ class ChainCalculator:
             Tuple of (J_min_WC, J_max_WC) - absolute limits of the game.
         """
         j_nom = self._get_oriented_nominal()
-        # For orientation=+1: J_min gets ei, J_max gets es
-        # For orientation=-1: J_min gets es (subtracting max gives min game), J_max gets ei
-        j_min = j_nom + sum(
-            item.orientation * (item.ei if item.orientation > 0 else item.es)
-            for item in self.items
-        )
-        j_max = j_nom + sum(
-            item.orientation * (item.es if item.orientation > 0 else item.ei)
-            for item in self.items
-        )
-        return j_min, j_max
+        delta_min = 0.0
+        delta_max = 0.0
+        for item in self.items:
+            if item.orientation > 0:
+                delta_min += item.ei
+                delta_max += item.es
+            else:
+                delta_min -= item.es
+                delta_max -= item.ei
+        return j_nom + delta_min, j_nom + delta_max
 
     def calculate_rss(self) -> tuple[float, float]:
         """Calculate statistical (RSS) tolerance stack-up at 3-sigma.
@@ -66,13 +65,14 @@ class ChainCalculator:
         j_max = j_moy + half_range
         return j_min, j_max
 
-    def calculate_pareto(self) -> list[dict]:
+    def calculate_pareto(self, total_variance: float | None = None) -> list[dict]:
         """Calculate Pareto contribution of each item to total variance.
 
         Returns:
             List of dicts with item name, IT, contribution_pct, sorted descending.
         """
-        total_variance = sum(item.IT ** 2 for item in self.items)
+        if total_variance is None:
+            total_variance = sum(item.IT ** 2 for item in self.items)
         if total_variance == 0:
             return [
                 {
@@ -97,14 +97,18 @@ class ChainCalculator:
         contributions.sort(key=lambda x: x["contribution_pct"], reverse=True)
         return contributions
 
-    def check_compliance(self) -> dict:
+    def check_compliance(
+        self,
+        wc_limits: tuple[float, float] | None = None,
+        rss_limits: tuple[float, float] | None = None,
+    ) -> dict:
         """Check compliance against target limits.
 
         Returns:
             Dict with compliance status and margins.
         """
-        j_min_wc, j_max_wc = self.calculate_worst_case()
-        j_min_rss, j_max_rss = self.calculate_rss()
+        j_min_wc, j_max_wc = wc_limits if wc_limits is not None else self.calculate_worst_case()
+        j_min_rss, j_max_rss = rss_limits if rss_limits is not None else self.calculate_rss()
 
         wc_compliant = True
         rss_compliant = True
@@ -140,12 +144,32 @@ class ChainCalculator:
 
     def calculate(self) -> ChainResult:
         """Run full calculation and return structured result."""
-        j_nom = self._get_oriented_nominal()
-        j_moy = self._get_oriented_mean()
-        wc_min, wc_max = self.calculate_worst_case()
-        rss_min, rss_max = self.calculate_rss()
-        pareto = self.calculate_pareto()
-        compliance = self.check_compliance()
+        j_nom = 0.0
+        j_moy = 0.0
+        delta_min = 0.0
+        delta_max = 0.0
+        total_variance = 0.0
+
+        for item in self.items:
+            o = item.orientation
+            j_nom += o * item.nominal
+            j_moy += o * item.L_moy
+            total_variance += item.IT ** 2
+            if o > 0:
+                delta_min += item.ei
+                delta_max += item.es
+            else:
+                delta_min -= item.es
+                delta_max -= item.ei
+
+        wc_min = j_nom + delta_min
+        wc_max = j_nom + delta_max
+        half_range = math.sqrt(total_variance) / 2
+        rss_min = j_moy - half_range
+        rss_max = j_moy + half_range
+
+        pareto = self.calculate_pareto(total_variance=total_variance)
+        compliance = self.check_compliance(wc_limits=(wc_min, wc_max), rss_limits=(rss_min, rss_max))
 
         return ChainResult(
             nominal=j_nom,

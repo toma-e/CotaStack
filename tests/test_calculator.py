@@ -105,6 +105,9 @@ class TestChainCalculator:
             Item(name="Neg", nominal=5.0, ei=-0.05, es=0.05, orientation=-1),
         ]
         calc = ChainCalculator(items)
+        wc_min_isolated, wc_max_isolated = calc.calculate_worst_case()
+        assert approx_equal(wc_min_isolated, 4.85)
+        assert approx_equal(wc_max_isolated, 5.15)
         result = calc.calculate()
         # Nominal: 10*1 + 5*(-1) = 5
         assert result.nominal == 5.0
@@ -195,6 +198,8 @@ class TestPareto:
             Item(name="C", nominal=5.0, ei=-0.05, es=0.05, orientation=1),
         ]
         calc = ChainCalculator(items)
+        direct_pareto = calc.calculate_pareto()
+        assert direct_pareto[0]["name"] == "B"
         result = calc.calculate()
         # B has largest IT (0.4), then A (0.2), then C (0.1)
         assert result.pareto[0]["name"] == "B"

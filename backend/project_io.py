@@ -5,6 +5,7 @@ No remote database required.
 """
 
 import json
+import math
 from typing import Any
 from backend.models import Item
 
@@ -74,16 +75,46 @@ def deserialize_project(json_content: str) -> dict[str, Any]:
     if data.get("format") != "cotastack":
         raise ValueError("Le fichier fourni n'est pas un fichier de projet CotaStack valide.")
 
-    metadata = data.get("metadata", {})
-    targets = data.get("targets", {})
-    thermal = data.get("thermal", {})
-    raw_items = data.get("items", [])
+    raw_meta = data.get("metadata")
+    metadata = raw_meta if isinstance(raw_meta, dict) else {}
 
+    raw_targets = data.get("targets")
+    targets = raw_targets if isinstance(raw_targets, dict) else {}
+
+    raw_thermal = data.get("thermal")
+    thermal = raw_thermal if isinstance(raw_thermal, dict) else {}
+
+    raw_items = data.get("items", [])
     if not isinstance(raw_items, list):
         raise ValueError("La liste des maillons est invalide.")
 
+    def _parse_target(val: Any) -> float | None:
+        if val is None:
+            return None
+        try:
+            f = float(val)
+            if not math.isfinite(f):
+                raise ValueError()
+            return f
+        except (ValueError, TypeError):
+            raise ValueError(f"Valeur de cible dimensionnelle invalide : {val}")
+
+    target_min = _parse_target(targets.get("target_min"))
+    target_max = _parse_target(targets.get("target_max"))
+    if target_min is not None and target_max is not None and target_min > target_max:
+        raise ValueError("target_min ne peut pas être strictement supérieur à target_max.")
+
+    raw_t_serv = thermal.get("t_service", 20.0)
+    try:
+        t_service = float(raw_t_serv if raw_t_serv is not None else 20.0)
+        if not math.isfinite(t_service) or t_service < -273.15:
+            raise ValueError()
+    except (ValueError, TypeError):
+        raise ValueError(f"Température de service invalide : {raw_t_serv}")
+
     items: list[Item] = []
     distributions: dict[str, str] = {}
+    allowed_dists = {"normale", "uniforme", "triangulaire"}
 
     for idx, raw in enumerate(raw_items):
         if not isinstance(raw, dict):
@@ -93,11 +124,16 @@ def deserialize_project(json_content: str) -> dict[str, Any]:
             nominal = float(raw["nominal"])
             es = float(raw["es"])
             ei = float(raw["ei"])
+            if not (math.isfinite(nominal) and math.isfinite(es) and math.isfinite(ei)):
+                raise ValueError("Les cotes doivent être des valeurs numériques finies.")
+
             orientation = int(raw.get("orientation", 1))
             if orientation not in (1, -1):
                 orientation = 1
             material = str(raw.get("material", "Acier (standard)"))
-            dist = str(raw.get("distribution", "normale"))
+            dist = str(raw.get("distribution", "normale")).strip().lower()
+            if dist not in allowed_dists:
+                dist = "normale"
 
             item = Item(
                 name=name,
@@ -115,8 +151,8 @@ def deserialize_project(json_content: str) -> dict[str, Any]:
     return {
         "items": items,
         "metadata": metadata,
-        "target_min": targets.get("target_min"),
-        "target_max": targets.get("target_max"),
-        "t_service": float(thermal.get("t_service", 20.0)),
+        "target_min": target_min,
+        "target_max": target_max,
+        "t_service": t_service,
         "distributions": distributions,
     }

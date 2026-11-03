@@ -78,6 +78,63 @@ class TestProjectIO:
         assert len(res["items"]) == 1
         assert res["items"][0].orientation == 1
 
+    def test_deserialize_null_and_malformed_sections(self) -> None:
+        # None and non-dict values for metadata, targets, and thermal sections must not crash
+        json_nulls = '{"format": "cotastack", "metadata": null, "targets": null, "thermal": null, "items": []}'
+        res_nulls = deserialize_project(json_nulls)
+        assert res_nulls["metadata"] == {}
+        assert res_nulls["target_min"] is None
+        assert res_nulls["target_max"] is None
+        assert res_nulls["t_service"] == 20.0
+
+        json_invalid_types = '{"format": "cotastack", "metadata": "not_a_dict", "targets": 123, "thermal": false, "items": []}'
+        res_invalid = deserialize_project(json_invalid_types)
+        assert res_invalid["metadata"] == {}
+        assert res_invalid["target_min"] is None
+        assert res_invalid["target_max"] is None
+        assert res_invalid["t_service"] == 20.0
+
+    def test_deserialize_target_validations(self) -> None:
+        # Non-numeric target_min
+        with pytest.raises(ValueError, match="Valeur de cible dimensionnelle invalide"):
+            deserialize_project('{"format": "cotastack", "targets": {"target_min": "bad"}}')
+
+        # Non-finite target_min (NaN / Inf)
+        with pytest.raises(ValueError, match="Valeur de cible dimensionnelle invalide"):
+            deserialize_project('{"format": "cotastack", "targets": {"target_min": "nan"}}')
+
+        # target_min > target_max
+        with pytest.raises(ValueError, match="target_min ne peut pas être strictement supérieur"):
+            deserialize_project('{"format": "cotastack", "targets": {"target_min": 5.0, "target_max": 2.0}}')
+
+    def test_deserialize_thermal_validations(self) -> None:
+        # Non-numeric t_service
+        with pytest.raises(ValueError, match="Température de service invalide"):
+            deserialize_project('{"format": "cotastack", "thermal": {"t_service": "invalid"}}')
+
+        # Temperature below absolute zero (-273.15 °C)
+        with pytest.raises(ValueError, match="Température de service invalide"):
+            deserialize_project('{"format": "cotastack", "thermal": {"t_service": -300.0}}')
+
+        # Non-finite temperature (NaN)
+        with pytest.raises(ValueError, match="Température de service invalide"):
+            deserialize_project('{"format": "cotastack", "thermal": {"t_service": "nan"}}')
+
+    def test_deserialize_non_finite_item_dimensions(self) -> None:
+        # NaN nominal
+        with pytest.raises(ValueError, match="Les cotes doivent être des valeurs numériques finies"):
+            deserialize_project('{"format": "cotastack", "items": [{"name": "P1", "nominal": "nan", "es": 0.1, "ei": -0.1}]}')
+
+        # Inf es
+        with pytest.raises(ValueError, match="Les cotes doivent être des valeurs numériques finies"):
+            deserialize_project('{"format": "cotastack", "items": [{"name": "P2", "nominal": 10.0, "es": "inf", "ei": -0.1}]}')
+
+    def test_deserialize_distribution_sanitization(self) -> None:
+        # Unknown or unallowed distribution defaults safely to "normale"
+        json_data = '{"format": "cotastack", "items": [{"name": "P1", "nominal": 10.0, "es": 0.1, "ei": -0.1, "distribution": "custom_hack"}]}'
+        res = deserialize_project(json_data)
+        assert res["distributions"]["P1"] == "normale"
+
 
 class TestPDFReportGenerator:
     """Tests for single-chain PDF report generation."""
