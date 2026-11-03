@@ -101,45 +101,88 @@ class ChainCalculator:
         self,
         wc_limits: tuple[float, float] | None = None,
         rss_limits: tuple[float, float] | None = None,
+        j_nom: float | None = None,
     ) -> dict:
-        """Check compliance against target limits.
+        """Check compliance against target limits across 3 distinct criteria:
+        1. Minimum limit (J_min >= Target_min)
+        2. Nominal/Central target (Target_min <= J_nom <= Target_max)
+        3. Maximum limit (J_max <= Target_max)
 
         Returns:
-            Dict with compliance status and margins.
+            Dict with compliance statuses (overall, min, nominal, max) and margins.
         """
         j_min_wc, j_max_wc = wc_limits if wc_limits is not None else self.calculate_worst_case()
         j_min_rss, j_max_rss = rss_limits if rss_limits is not None else self.calculate_rss()
+        nominal_val = j_nom if j_nom is not None else self._get_oriented_nominal()
 
-        wc_compliant = True
-        rss_compliant = True
+        wc_min_compliant = True
+        wc_max_compliant = True
+        wc_nominal_compliant = True
+
+        rss_min_compliant = True
+        rss_max_compliant = True
+        rss_nominal_compliant = True
+
         wc_margin_min = None
         wc_margin_max = None
         rss_margin_min = None
         rss_margin_max = None
+        nominal_deviation = None
 
+        # 1. Minimum limit verification (J_min >= Target_min)
         if self.target_min is not None:
             wc_margin_min = j_min_wc - self.target_min
             rss_margin_min = j_min_rss - self.target_min
             if wc_margin_min < 0:
-                wc_compliant = False
+                wc_min_compliant = False
             if rss_margin_min < 0:
-                rss_compliant = False
+                rss_min_compliant = False
+            if nominal_val < self.target_min:
+                wc_nominal_compliant = False
+                rss_nominal_compliant = False
 
+        # 2. Maximum limit verification (J_max <= Target_max)
         if self.target_max is not None:
             wc_margin_max = self.target_max - j_max_wc
             rss_margin_max = self.target_max - j_max_rss
             if wc_margin_max < 0:
-                wc_compliant = False
+                wc_max_compliant = False
             if rss_margin_max < 0:
-                rss_compliant = False
+                rss_max_compliant = False
+            if nominal_val > self.target_max:
+                wc_nominal_compliant = False
+                rss_nominal_compliant = False
+
+        # Nominal central deviation when both targets are given
+        if self.target_min is not None and self.target_max is not None:
+            target_center = (self.target_min + self.target_max) / 2.0
+            nominal_deviation = nominal_val - target_center
+        elif self.target_min is not None:
+            nominal_deviation = nominal_val - self.target_min
+        elif self.target_max is not None:
+            nominal_deviation = nominal_val - self.target_max
+
+        wc_compliant = wc_min_compliant and wc_max_compliant
+        rss_compliant = rss_min_compliant and rss_max_compliant
 
         return {
+            # Global historical booleans for backward compatibility
             "wc_compliant": wc_compliant,
             "rss_compliant": rss_compliant,
+            # 3 Distinct criteria for Worst-Case
+            "wc_min_compliant": wc_min_compliant,
+            "wc_nominal_compliant": wc_nominal_compliant,
+            "wc_max_compliant": wc_max_compliant,
+            # 3 Distinct criteria for RSS
+            "rss_min_compliant": rss_min_compliant,
+            "rss_nominal_compliant": rss_nominal_compliant,
+            "rss_max_compliant": rss_max_compliant,
+            # Margins & deviations
             "wc_margin_min": wc_margin_min,
             "wc_margin_max": wc_margin_max,
             "rss_margin_min": rss_margin_min,
             "rss_margin_max": rss_margin_max,
+            "nominal_deviation": nominal_deviation,
         }
 
     def calculate(self) -> ChainResult:
@@ -169,7 +212,11 @@ class ChainCalculator:
         rss_max = j_moy + half_range
 
         pareto = self.calculate_pareto(total_variance=total_variance)
-        compliance = self.check_compliance(wc_limits=(wc_min, wc_max), rss_limits=(rss_min, rss_max))
+        compliance = self.check_compliance(
+            wc_limits=(wc_min, wc_max),
+            rss_limits=(rss_min, rss_max),
+            j_nom=j_nom,
+        )
 
         return ChainResult(
             nominal=j_nom,

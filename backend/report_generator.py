@@ -212,14 +212,15 @@ def generate_pdf_report(
     elements.append(items_table)
     elements.append(Spacer(1, 6 * mm))
 
-    # 4. Results Section
-    elements.append(Paragraph("2. Bilan des résultats de calcul 1D", h2_style))
+    # 4. Results Section (3 Distinct Compliance Criteria)
+    elements.append(Paragraph("2. Bilan des résultats de calcul et conformité (3 critères)", h2_style))
 
     it_wc = sum(it.IT for it in items)
     it_rss = (sum(it.IT ** 2 for it in items)) ** 0.5
 
-    wc_comp_str = "CONFORME (GO)" if result.compliance.get("wc_compliant", True) else "NON CONFORME (NO-GO)"
-    rss_comp_str = "CONFORME (GO)" if result.compliance.get("rss_compliant", True) else "NON CONFORME (NO-GO)"
+    c_info = result.compliance
+    wc_comp_str = "CONFORME (GO)" if c_info.get("wc_compliant", True) else "NON CONFORME (NO-GO)"
+    rss_comp_str = "CONFORME (GO)" if c_info.get("rss_compliant", True) else "NON CONFORME (NO-GO)"
 
     results_data = [
         [
@@ -228,7 +229,7 @@ def generate_pdf_report(
             Paragraph("Jeu Moyen (mm)", cell_header),
             Paragraph("Jeu Max (mm)", cell_header),
             Paragraph("IT Total (mm)", cell_header),
-            Paragraph("Verdict Cible", cell_header),
+            Paragraph("Verdict Global", cell_header),
         ],
         [
             Paragraph("<b>Pire des Cas (WC)</b>", cell_body),
@@ -254,11 +255,65 @@ def generate_pdf_report(
         ("BOX", (0, 0), (-1, -1), 1, colors.HexColor("#94a3b8")),
         ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("TOPPADDING", (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("TOPPADDING", (0, 0), (-1, -1), 2.5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
     ]))
     elements.append(res_table)
-    elements.append(Spacer(1, 6 * mm))
+    elements.append(Spacer(1, 3 * mm))
+
+    # Detailed 3-Criteria Compliance Table if targets are configured
+    if result.target_min is not None or result.target_max is not None:
+        t_min_str = f"{result.target_min:.4f}" if result.target_min is not None else "-∞"
+        t_max_str = f"{result.target_max:.4f}" if result.target_max is not None else "+∞"
+        nom_status = "CONFORME (CENTRE)" if c_info.get("wc_nominal_compliant", True) else "HORS INTERVALLE"
+        min_status = "CONFORME" if c_info.get("wc_min_compliant", True) else "DÉPASSEMENT"
+        max_status = "CONFORME" if c_info.get("wc_max_compliant", True) else "DÉPASSEMENT"
+
+        m_min = f"{c_info.get('wc_margin_min'):+.4f} mm" if c_info.get('wc_margin_min') is not None else "-"
+        m_max = f"{c_info.get('wc_margin_max'):+.4f} mm" if c_info.get('wc_margin_max') is not None else "-"
+        dev_nom = f"{c_info.get('nominal_deviation'):+.4f} mm" if c_info.get('nominal_deviation') is not None else "-"
+
+        crit_data = [
+            [
+                Paragraph("Critère fonctionnel", cell_header),
+                Paragraph("Exigence Cible", cell_header),
+                Paragraph("Valeur Calculée", cell_header),
+                Paragraph("Écart / Marge", cell_header),
+                Paragraph("Statut Critère", cell_header),
+            ],
+            [
+                Paragraph("1. Borne Minimale (J_min)", cell_body),
+                Paragraph(f"&ge; {t_min_str} mm", cell_body),
+                Paragraph(f"{result.worst_case_minus:.4f} mm", cell_body),
+                Paragraph(m_min, cell_body),
+                Paragraph(f"<b>{min_status}</b>", cell_body),
+            ],
+            [
+                Paragraph("2. Centrage Nominal (J_nom)", cell_body),
+                Paragraph(f"&isin; [{t_min_str} ; {t_max_str}]", cell_body),
+                Paragraph(f"{result.nominal:.4f} mm", cell_body),
+                Paragraph(dev_nom, cell_body),
+                Paragraph(f"<b>{nom_status}</b>", cell_body),
+            ],
+            [
+                Paragraph("3. Borne Maximale (J_max)", cell_body),
+                Paragraph(f"&le; {t_max_str} mm", cell_body),
+                Paragraph(f"{result.worst_case_plus:.4f} mm", cell_body),
+                Paragraph(m_max, cell_body),
+                Paragraph(f"<b>{max_status}</b>", cell_body),
+            ],
+        ]
+        crit_table = Table(crit_data, colWidths=[46 * mm, 34 * mm, 34 * mm, 34 * mm, 32 * mm])
+        crit_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0284c7")),
+            ("BOX", (0, 0), (-1, -1), 1, colors.HexColor("#94a3b8")),
+            ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("TOPPADDING", (0, 0), (-1, -1), 2),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+        ]))
+        elements.append(crit_table)
+        elements.append(Spacer(1, 4 * mm))
 
     # 5. Advanced Modules (Thermal & Monte Carlo if provided)
     if thermal_summary or monte_carlo_summary:

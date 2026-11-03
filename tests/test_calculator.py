@@ -254,4 +254,35 @@ class TestCompliance:
         result_max = calc_max.calculate()
         # WC: J_min=9.9, J_max=10.1
         assert result_min.compliance["wc_compliant"] is False  # J_min=9.9 < 9.95
+        assert result_min.compliance["wc_min_compliant"] is False
+        assert result_min.compliance["wc_nominal_compliant"] is True
         assert result_max.compliance["wc_compliant"] is False  # J_max=10.1 > 10.05
+        assert result_max.compliance["wc_max_compliant"] is False
+        assert result_max.compliance["wc_nominal_compliant"] is True
+
+    def test_three_criteria_compliance_details(self) -> None:
+        """Verify detailed min, nominal, max criteria and nominal deviation."""
+        # Nominal = 10.0, WC: [9.8, 10.2]
+        items = [Item(name="Test", nominal=10.0, ei=-0.2, es=0.2, orientation=1)]
+        
+        # Case A: Min violated (target_min=9.9), but Max and Nom ok (target_max=10.5)
+        calc_a = ChainCalculator(items, target_min=9.9, target_max=10.5)
+        res_a = calc_a.calculate()
+        assert res_a.compliance["wc_min_compliant"] is False
+        assert res_a.compliance["wc_nominal_compliant"] is True
+        assert res_a.compliance["wc_max_compliant"] is True
+        assert approx_equal(res_a.compliance["nominal_deviation"], -0.2)
+
+        # Case B: Max violated (target_max=10.1), but Min and Nom ok (target_min=9.5)
+        calc_b = ChainCalculator(items, target_min=9.5, target_max=10.1)
+        res_b = calc_b.calculate()
+        assert res_b.compliance["wc_min_compliant"] is True
+        assert res_b.compliance["wc_nominal_compliant"] is True
+        assert res_b.compliance["wc_max_compliant"] is False
+
+        # Case C: Nominal off-target completely (Nominal=10.0, Targets=[10.5, 11.0])
+        calc_c = ChainCalculator(items, target_min=10.5, target_max=11.0)
+        res_c = calc_c.calculate()
+        assert res_c.compliance["wc_min_compliant"] is False
+        assert res_c.compliance["wc_nominal_compliant"] is False
+        assert res_c.compliance["wc_max_compliant"] is True

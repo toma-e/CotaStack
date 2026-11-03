@@ -247,7 +247,7 @@ def main():
             with col_a2:
                 iso_orient = st.selectbox("Sens", options=["+", "-"], key="iso_orient_input")
             with col_a3:
-                iso_nominal = st.number_input("Nominal (mm)", min_value=0.5, max_value=500.0, value=20.0, step=1.0, key="iso_nom_input")
+                iso_nominal = st.number_input("Nominal (mm)", min_value=0.5, max_value=3150.0, value=20.0, step=1.0, key="iso_nom_input")
             with col_a4:
                 all_symbols = get_available_iso286_symbols()
                 merged_syms = [f"Alésage {h}" for h in all_symbols["holes"]] + [f"Arbre {s}" for s in all_symbols["shafts"]]
@@ -497,30 +497,71 @@ def main():
             with col_t4:
                 render_metric_card("WC Max à chaud", thermal_res.worst_case_plus_at_t)
 
-        # --- Compliance Section ---
+        # --- Compliance Section (3 Distinct Criteria: Min, Nominal, Max) ---
         if st.session_state.target_min is not None or st.session_state.target_max is not None:
             st.divider()
-            st.subheader("✅ Conformité aux Cibles Fonctionnelles")
+            st.subheader("✅ Évaluation Détaillée de Conformité (3 Critères)")
+            st.caption("Conformité décomposée selon les trois critères fonctionnels : Borne Minimale (J_min), Centrage Nominal (J_nom) et Borne Maximale (J_max).")
 
-            wc_comp = result.compliance["wc_compliant"]
-            rss_comp = result.compliance["rss_compliant"]
+            c_info = result.compliance
+            wc_comp = c_info["wc_compliant"]
+            rss_comp = c_info["rss_compliant"]
 
-            col_badge1, col_badge2 = st.columns(2)
-            with col_badge1:
+            # Global badges
+            col_b1, col_b2 = st.columns(2)
+            with col_b1:
                 if wc_comp:
-                    st.success("✅ **WC : CONFORME (GO)** — 100% dans la cible à 20°C")
+                    st.success("✅ **Pire des Cas (WC) : GLOBALEMENT CONFORME (GO)**")
                 else:
-                    st.error("❌ **WC : NON CONFORME (NO-GO)** — Dépassement aux extrêmes")
-                if result.compliance["wc_margin_min"] is not None:
-                    st.caption(f"Marge inf: `{result.compliance['wc_margin_min']:+.4f} mm` | Marge sup: `{result.compliance['wc_margin_max']:+.4f} mm`")
-
-            with col_badge2:
+                    st.error("❌ **Pire des Cas (WC) : NON CONFORME (NO-GO)**")
+            with col_b2:
                 if rss_comp:
-                    st.success("✅ **RSS : CONFORME (GO)** — Conforme sous hypothèse normale (3σ)")
+                    st.success("✅ **Statistique (RSS 3σ) : GLOBALEMENT CONFORME (GO)**")
                 else:
-                    st.error("❌ **RSS : NON CONFORME (NO-GO)** — Dispersion statistique hors cible")
-                if result.compliance["rss_margin_min"] is not None:
-                    st.caption(f"Marge inf: `{result.compliance['rss_margin_min']:+.4f} mm` | Marge sup: `{result.compliance['rss_margin_max']:+.4f} mm`")
+                    st.error("❌ **Statistique (RSS 3σ) : NON CONFORME (NO-GO)**")
+
+            # 3 Distinct Columns: Min / Nominal / Max
+            col_crit_min, col_crit_nom, col_crit_max = st.columns(3)
+
+            with col_crit_min:
+                st.markdown("##### 1️⃣ Borne Minimale ($J_{min}$)")
+                if st.session_state.target_min is not None:
+                    wc_min_ok = c_info.get("wc_min_compliant", True)
+                    m_min = c_info.get("wc_margin_min")
+                    if wc_min_ok:
+                        st.markdown(f"**WC :** :green[CONFORME] (marge `{m_min:+.4f} mm`)")
+                    else:
+                        st.markdown(f"**WC :** :red[DÉPASSEMENT] (marge `{m_min:+.4f} mm`)")
+                    st.caption(f"Cible Min requise : `{st.session_state.target_min:.4f} mm` | $J_{{min,WC}}$ = `{result.worst_case_minus:.4f} mm`")
+                else:
+                    st.info("Aucune exigence minimale définie.")
+
+            with col_crit_nom:
+                st.markdown("##### 2️⃣ Centrage Nominal ($J_{nom}$)")
+                if st.session_state.target_min is not None or st.session_state.target_max is not None:
+                    nom_ok = c_info.get("wc_nominal_compliant", True)
+                    dev_nom = c_info.get("nominal_deviation")
+                    dev_str = f"{dev_nom:+.4f} mm" if dev_nom is not None else "N/A"
+                    if nom_ok:
+                        st.markdown(f"**Nominal :** :green[CENTRÉ DANS LA CIBLE] (écart `{dev_str}`)")
+                    else:
+                        st.markdown(f"**Nominal :** :red[HORS INTERVALLE CIBLE] (écart `{dev_str}`)")
+                    st.caption(f"Cote nominale assemblée : `{result.nominal:.4f} mm`")
+                else:
+                    st.info("Aucune exigence définie.")
+
+            with col_crit_max:
+                st.markdown("##### 3️⃣ Borne Maximale ($J_{max}$)")
+                if st.session_state.target_max is not None:
+                    wc_max_ok = c_info.get("wc_max_compliant", True)
+                    m_max = c_info.get("wc_margin_max")
+                    if wc_max_ok:
+                        st.markdown(f"**WC :** :green[CONFORME] (marge `{m_max:+.4f} mm`)")
+                    else:
+                        st.markdown(f"**WC :** :red[DÉPASSEMENT] (marge `{m_max:+.4f} mm`)")
+                    st.caption(f"Cible Max requise : `{st.session_state.target_max:.4f} mm` | $J_{{max,WC}}$ = `{result.worst_case_plus:.4f} mm`")
+                else:
+                    st.info("Aucune exigence maximale définie.")
 
         # --- Visualizations Tabs ---
         st.divider()

@@ -100,10 +100,22 @@ def main():
                 monte_carlo_summary=mc_dict,
             )
 
+            default_pdf_filename = f"note_calcul_{proj_name.lower().replace(' ', '_')}"
+            custom_pdf_filename = st.text_input(
+                "Nom du fichier PDF téléchargé (sans extension)",
+                value=default_pdf_filename,
+                help="Personnalisez le nom du fichier PDF généré.",
+                key="custom_pdf_filename_input",
+            )
+            # Nettoyer et forcer l'extension .pdf
+            safe_pdf_name = (custom_pdf_filename.strip() or default_pdf_filename)
+            if not safe_pdf_name.lower().endswith(".pdf"):
+                safe_pdf_name += ".pdf"
+
             st.download_button(
                 label="📄 Télécharger le Rapport Officiel (PDF A4)",
                 data=pdf_bytes,
-                file_name=f"note_calcul_{proj_name.lower().replace(' ', '_')}.pdf",
+                file_name=safe_pdf_name,
                 mime="application/pdf",
                 type="primary",
                 use_container_width=True,

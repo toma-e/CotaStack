@@ -161,11 +161,11 @@ def main() -> None:
             nominal = st.number_input(
                 "Diamètre nominal (mm)",
                 min_value=0.1,
-                max_value=500.0,
+                max_value=3150.0,
                 value=20.0,
                 step=1.0,
                 format="%.2f",
-                help="Diamètre nominal de la liaison cylindrique (≤ 500 mm)",
+                help="Diamètre nominal de la liaison cylindrique (0.1 mm à 3 150 mm selon ISO 286-1:2010)",
             )
 
         with col_input2:

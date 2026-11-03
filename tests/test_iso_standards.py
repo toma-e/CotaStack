@@ -44,8 +44,17 @@ class TestISO286Limits:
             get_iso286_limits(0.0, "H7")
         with pytest.raises(ValueError, match="must be > 0"):
             get_iso286_limits(-10.0, "H7")
-        with pytest.raises(ValueError, match="> 500 mm not supported"):
-            get_iso286_limits(600.0, "H7")
+        with pytest.raises(ValueError, match="> 3150 mm not supported"):
+            get_iso286_limits(3200.0, "H7")
+
+    def test_js13_and_large_diameters(self) -> None:
+        # Step 18-30mm: IT13 = 330 µm -> JS13 = +/- 165 µm = +/- 0.165 mm
+        assert get_iso286_limits(20.0, "JS13") == (-0.165, 0.165)
+        assert get_iso286_limits(20.0, "js13") == (-0.165, 0.165)
+        # Step 500-630mm: IT7 = 70 µm -> H7 = [0, +0.070] mm
+        assert get_iso286_limits(600.0, "H7") == (0.0, 0.070)
+        # Step 2500-3150mm: IT13 = 3300 µm -> JS13 = +/- 1.65 mm
+        assert get_iso286_limits(3000.0, "JS13") == (-1.650, 1.650)
 
     def test_unsupported_symbol(self) -> None:
         with pytest.raises(ValueError, match="Unsupported ISO 286 symbol"):

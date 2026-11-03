@@ -1324,6 +1324,17 @@ def main() -> None:
             pdf_rev = st.text_input("Indice de révision", value="A", key="multi_pdf_rev")
             pdf_date = st.date_input("Date de certification", value=date.today(), key="multi_pdf_date")
 
+        default_multi_pdf_name = f"note_calcul_{project.name.lower().replace(' ', '_')}"
+        custom_multi_pdf_name = st.text_input(
+            "Nom du fichier PDF d'export (sans extension)",
+            value=default_multi_pdf_name,
+            help="Personnalisez le nom du fichier PDF pour le rapport complet multi-chaînes.",
+            key="custom_multi_pdf_filename",
+        )
+        safe_multi_pdf_name = (custom_multi_pdf_name.strip() or default_multi_pdf_name)
+        if not safe_multi_pdf_name.lower().endswith(".pdf"):
+            safe_multi_pdf_name += ".pdf"
+
         pdf_meta = {
             "title": pdf_title,
             "author": pdf_author,
@@ -1335,7 +1346,7 @@ def main() -> None:
         st.download_button(
             label="📄 Télécharger le Rapport Système Complet (PDF A4)",
             data=pdf_bytes,
-            file_name=f"note_calcul_{project.name.lower().replace(' ', '_')}.pdf",
+            file_name=safe_multi_pdf_name,
             mime="application/pdf",
             type="primary",
             use_container_width=True,
