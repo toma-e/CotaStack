@@ -611,14 +611,6 @@ def main() -> None:
                         use_container_width=True,
                         disabled=is_empty_project,
                     )
-                    st.download_button(
-                        label="📄 Télécharger la Note de Calcul (PDF)",
-                        data=generate_multi_chain_pdf_report(project),
-                        file_name=f"note_calcul_{project.name.lower().replace(' ', '_')}.pdf",
-                        mime="application/pdf",
-                        use_container_width=True,
-                        disabled=is_empty_project,
-                    )
 
             with col_b2:
                 with st.popover(
