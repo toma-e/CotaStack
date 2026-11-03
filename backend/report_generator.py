@@ -20,13 +20,13 @@ from reportlab.platypus import (
     Table,
     TableStyle,
     HRFlowable,
+    KeepTogether,
 )
 
 from backend.models import Item, ChainResult
 from backend.calculator import ChainCalculator
 from backend.multi_chain import MultiChainProject, AssemblyChain
 from reportlab.graphics.shapes import Drawing, Line, String, Polygon, Rect, Group
-from reportlab.platypus import PageBreak
 
 
 def generate_pdf_report(
@@ -696,35 +696,35 @@ def generate_multi_chain_pdf_report(
         ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
     ]))
     elements.append(summary_table)
+    elements.append(Spacer(1, 5 * mm))
 
-    # 4. Detailed Sections for Each Chain
-    elements.append(PageBreak())
-
+    # 4. Detailed Sections for Each Chain (Each chain block kept together to avoid splitting)
     for idx_chain, (c_id, chain) in enumerate(project.chains.items(), start=1):
-        elements.append(Paragraph(f"2.{idx_chain} Chaîne : {html.escape(chain.name)} [{html.escape(chain.id)}]", h2_style))
+        chain_flowables = []
+        chain_flowables.append(Paragraph(f"2.{idx_chain} Chaîne : {html.escape(chain.name)} [{html.escape(chain.id)}]", h2_style))
 
         if chain.description:
-            elements.append(Paragraph(f"<i>Description : {html.escape(chain.description)}</i>", body_style))
-            elements.append(Spacer(1, 2 * mm))
+            chain_flowables.append(Paragraph(f"<i>Description : {html.escape(chain.description)}</i>", body_style))
+            chain_flowables.append(Spacer(1, 2 * mm))
 
         # Target specification
         if chain.target_min is not None or chain.target_max is not None:
             t_min_str = f"{chain.target_min:.3f} mm" if chain.target_min is not None else "-∞"
             t_max_str = f"{chain.target_max:.3f} mm" if chain.target_max is not None else "+∞"
-            elements.append(Paragraph(f"<b>Spécification fonctionnelle cible :</b> Jeu requis &isin; [{t_min_str} ; {t_max_str}]", body_style))
-            elements.append(Spacer(1, 3 * mm))
+            chain_flowables.append(Paragraph(f"<b>Spécification fonctionnelle cible :</b> Jeu requis &isin; [{t_min_str} ; {t_max_str}]", body_style))
+            chain_flowables.append(Spacer(1, 3 * mm))
 
         # Resolve items
         items = project.resolve_chain_items(chain.id) if chain.links else []
 
         # Vector stack diagram (Drawing)
-        elements.append(Paragraph("<b>Tracé vectoriel 1D de la boucle de tolérance :</b>", h3_style))
+        chain_flowables.append(Paragraph("<b>Tracé vectoriel 1D de la boucle de tolérance :</b>", h3_style))
         drawing = _build_1d_chain_drawing(chain, items)
-        elements.append(drawing)
-        elements.append(Spacer(1, 4 * mm))
+        chain_flowables.append(drawing)
+        chain_flowables.append(Spacer(1, 4 * mm))
 
         # Table of dimensions (items)
-        elements.append(Paragraph("<b>Tableau des cotes et maillons dimensionnels :</b>", h3_style))
+        chain_flowables.append(Paragraph("<b>Tableau des cotes et maillons dimensionnels :</b>", h3_style))
         item_headers = [
             Paragraph("Repère / Cote", cell_header),
             Paragraph("Sens", cell_header),
@@ -766,15 +766,22 @@ def generate_multi_chain_pdf_report(
             ("TOPPADDING", (0, 0), (-1, -1), 2),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
         ]))
-        elements.append(items_table)
-        elements.append(Spacer(1, 4 * mm))
+        chain_flowables.append(items_table)
+        chain_flowables.append(Spacer(1, 4 * mm))
 
         # Calculation Results (Worst-Case)
         if items:
             calc = ChainCalculator(items, target_min=chain.target_min, target_max=chain.target_max)
             result = calc.calculate()
             it_wc = sum(it.IT for it in items)
-            wc_comp = "CONFORME (GO)" if result.compliance.get("wc_compliant", True) else "NON CONFORME (NO-GO)"
+            c_info = result.compliance
+            wc_comp = "CONFORME (GO)" if c_info.get("wc_compliant", True) else "NON CONFORME (NO-GO)"
+
+            # Detail 3 criteria
+            min_st = "OK" if c_info.get("wc_min_compliant", True) else "DÉPASSEMENT"
+            nom_st = "OK" if c_info.get("wc_nominal_compliant", True) else "DÉCENTRÉ"
+            max_st = "OK" if c_info.get("wc_max_compliant", True) else "DÉPASSEMENT"
+            crit_3_summary = f"{wc_comp} [Min: {min_st}, Nom: {nom_st}, Max: {max_st}]"
 
             res_data = [
                 [
@@ -783,7 +790,7 @@ def generate_multi_chain_pdf_report(
                     Paragraph("Jeu Moyen (mm)", cell_header),
                     Paragraph("Jeu Max (mm)", cell_header),
                     Paragraph("IT Résultant (mm)", cell_header),
-                    Paragraph("Verdict Cible", cell_header),
+                    Paragraph("Verdict 3 critères (Min/Nom/Max)", cell_header),
                 ],
                 [
                     Paragraph("<b>Pire des Cas (Worst-Case)</b>", cell_body),
@@ -791,10 +798,10 @@ def generate_multi_chain_pdf_report(
                     Paragraph(f"{result.mean:.4f}", cell_body),
                     Paragraph(f"{result.worst_case_plus:.4f}", cell_body),
                     Paragraph(f"{it_wc:.4f}", cell_body),
-                    Paragraph(f"<b>{wc_comp}</b>", cell_body),
+                    Paragraph(f"<b>{crit_3_summary}</b>", cell_body),
                 ],
             ]
-            res_table = Table(res_data, colWidths=[45 * mm, 26 * mm, 28 * mm, 26 * mm, 26 * mm, 29 * mm])
+            res_table = Table(res_data, colWidths=[42 * mm, 24 * mm, 24 * mm, 24 * mm, 24 * mm, 42 * mm])
             res_table.setStyle(TableStyle([
                 ("BACKGROUND", (0, 0), (-1, 0), dark_color),
                 ("BOX", (0, 0), (-1, -1), 1, colors.HexColor("#94a3b8")),
@@ -803,13 +810,18 @@ def generate_multi_chain_pdf_report(
                 ("TOPPADDING", (0, 0), (-1, -1), 2.5),
                 ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
             ]))
-            elements.append(res_table)
+            chain_flowables.append(res_table)
 
-        # PageBreak between chains
-        elements.append(PageBreak())
+        chain_flowables.append(Spacer(1, 6 * mm))
 
-    # 5. Quality Visa & Legal Disclaimer (Final Page)
-    elements.append(Paragraph("Visa et Approbation Qualité", h2_style))
+        # Use KeepTogether so individual chain blocks do not get cut across page boundaries unless too large
+        elements.append(KeepTogether(chain_flowables))
+
+    # 5. Quality Visa & Legal Disclaimer (Final Block)
+    visa_flowables = [
+        Paragraph("Visa et Approbation Qualité", h2_style),
+        Spacer(1, 2 * mm),
+    ]
     approb_data = [
         [
             Paragraph("<b>Établi par :</b>", meta_label),
@@ -830,7 +842,9 @@ def generate_multi_chain_pdf_report(
         ("TOPPADDING", (0, 0), (-1, -1), 4),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
     ]))
-    elements.append(approb_table)
+    visa_flowables.append(approb_table)
+    visa_flowables.append(Spacer(1, 6 * mm))
+    elements.append(KeepTogether(visa_flowables))
 
     elements.append(Spacer(1, 6 * mm))
     elements.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#cbd5e1"), spaceAfter=4))

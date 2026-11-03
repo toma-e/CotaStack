@@ -28,6 +28,14 @@ from backend.report_generator import generate_pdf_report
 
 st.set_page_config(page_title="Calculateur — CotaStack", page_icon="🧮", layout="wide")
 
+st.warning(
+    "⚠️ **Module Obsolète** : Cette page de calcul mono-chaîne est dépréciée. "
+    "L'application utilise désormais le module central **Multi-Chaînes Système** (`pages/04_Multi_Chaines.py`), "
+    "qui regroupe le répertoire de composants, les chaînes multiples, les calculs thermiques, "
+    "la simulation Monte Carlo et la génération de rapports."
+)
+
+
 
 def create_empty_item() -> dict:
     """Create an empty item dict for the data editor."""

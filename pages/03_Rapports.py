@@ -10,6 +10,13 @@ from backend.report_generator import generate_pdf_report
 
 st.set_page_config(page_title="Rapports — CotaStack", page_icon="📄", layout="wide")
 
+st.warning(
+    "⚠️ **Module Obsolète** : Cette page de rapports mono-chaîne est dépréciée. "
+    "L'application utilise désormais le module central **Multi-Chaînes Système** (`pages/04_Multi_Chaines.py`), "
+    "qui intègre la génération directe de rapports PDF multi-chaînes avec dessins vectoriels et matrice d'impact."
+)
+
+
 
 def dataframe_to_items(df: pd.DataFrame) -> list[Item]:
     """Convert session DataFrame to list of Items."""

@@ -26,6 +26,13 @@ st.set_page_config(
     layout="wide",
 )
 
+st.warning(
+    "⚠️ **Module Obsolète** : Cet explorateur autonome de normes ISO est déprécié. "
+    "L'application utilise désormais le module central **Multi-Chaînes Système** (`pages/04_Multi_Chaines.py`), "
+    "qui intègre directement les tolérances ISO et la gestion des composants partagés."
+)
+
+
 
 def render_fit_chart(res):
     """Render Plotly bar chart visualizing hole vs shaft tolerance zones."""

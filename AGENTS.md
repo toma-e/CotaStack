@@ -18,12 +18,12 @@ CotaStack/
 │   ├── feedback.py           # User feedback & suggestion collection (JSONL)
 │   ├── project_io.py         # .cotastack JSON format save & load (privacy-first)
 │   └── report_generator.py   # Vectorized A4 PDF calculation report (ReportLab)
-├── app.py                    # Streamlit entry point (multipage)
+├── app.py                    # Streamlit entry point (multi-chaîne unique actif)
 ├── pages/                    # Streamlit pages
-│   ├── 01_Calculateur.py     # 1D tolerance chain calculator, thermal & Monte Carlo tabs
-│   ├── 02_Standards_ISO.py   # ISO 286 fits, ISO 2768 & ISO GPS Ⓜ explorer
-│   ├── 03_Rapports.py        # Official A4 PDF reports, CSV and Markdown exports
-│   └── 04_Multi_Chaines.py   # Unified multi-chain system & cross-impact matrix
+│   ├── 01_Calculateur.py     # [OBSOLÈTE] Ancien calculateur mono-chaîne
+│   ├── 02_Standards_ISO.py   # [OBSOLÈTE] Ancien explorateur ISO autonome
+│   ├── 03_Rapports.py        # [OBSOLÈTE] Ancien générateur de rapports mono-chaîne
+│   └── 04_Multi_Chaines.py   # Page active unique : Système multi-chaînes unifié
 ├── tests/                    # pytest suite (100% backend coverage target)
 │   ├── test_calculator.py    # Item and ChainCalculator tests
 │   ├── test_iso_standards.py # ISO 286 and 2768-1 tests

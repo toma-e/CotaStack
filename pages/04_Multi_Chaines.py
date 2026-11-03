@@ -1201,51 +1201,68 @@ def main() -> None:
                         wc_it = res.worst_case_plus - res.worst_case_minus
                         st.metric("Dispersion Totale ($IT_{\\text{WC}}$)", f"{wc_it:.4f} mm")
 
-                    # Functional Margins & Verdict
+                    # Functional Margins & Verdict: 3 Distinct Criteria (Min / Nominal / Max)
                     has_targets = active_chain.target_min is not None or active_chain.target_max is not None
                     if has_targets:
-                        col_marg1, col_marg2 = st.columns(2)
-                        wc_is_ok = True
+                        c_info = res.compliance
+                        wc_comp = c_info.get("wc_compliant", True)
 
-                        with col_marg1:
-                            if active_chain.target_min is not None:
-                                margin_min = res.worst_case_minus - active_chain.target_min
-                                st.metric(
-                                    f"Marge minimale (vs {active_chain.target_min:.3f} mm)",
-                                    f"{margin_min:+.4f} mm",
-                                    delta=f"{margin_min:+.4f} mm",
-                                    delta_color="normal" if margin_min >= 0 else "inverse",
-                                )
-                                if margin_min < 0:
-                                    wc_is_ok = False
-                            else:
-                                st.info("Aucune limite minimale spécifiée.")
-
-                        with col_marg2:
-                            if active_chain.target_max is not None:
-                                margin_max = active_chain.target_max - res.worst_case_plus
-                                st.metric(
-                                    f"Marge maximale (vs {active_chain.target_max:.3f} mm)",
-                                    f"{margin_max:+.4f} mm",
-                                    delta=f"{margin_max:+.4f} mm",
-                                    delta_color="normal" if margin_max >= 0 else "inverse",
-                                )
-                                if margin_max < 0:
-                                    wc_is_ok = False
-                            else:
-                                st.info("Aucune limite maximale spécifiée.")
-
-                        if wc_is_ok:
+                        st.markdown("##### 🎯 Évaluation Détaillée de Conformité (3 Critères Fonctionnels)")
+                        if wc_comp:
                             st.success(
                                 f"✅ **100% CONFORME AU PIRE DES CAS** : Le jeu calculé "
-                                f"`[{res.worst_case_minus:.4f} ; {res.worst_case_plus:.4f}] mm` est strictement "
-                                f"dans les limites admissibles `[{active_chain.target_min} ; {active_chain.target_max}] mm`."
+                                f"`[{res.worst_case_minus:.4f} ; {res.worst_case_plus:.4f}] mm` respecte l'ensemble "
+                                f"des spécifications cibles `[{active_chain.target_min if active_chain.target_min is not None else '-∞'} ; {active_chain.target_max if active_chain.target_max is not None else '+∞'}] mm`."
                             )
                         else:
                             st.error(
-                                f"❌ **NON CONFORME AU PIRE DES CAS** : Risque d'interférence ou de jeu excessif. "
+                                f"❌ **NON CONFORME AU PIRE DES CAS (NO-GO)** : Risque d'interférence ou de jeu excessif. "
                                 f"Ajustez les tolérances du catalogue ou de la chaîne pour retrouver la conformité."
                             )
+
+                        col_crit_min, col_crit_nom, col_crit_max = st.columns(3)
+
+                        with col_crit_min:
+                            st.markdown("###### 1️⃣ Borne Minimale ($J_{\\min}$)")
+                            if active_chain.target_min is not None:
+                                wc_min_ok = c_info.get("wc_min_compliant", True)
+                                m_min = c_info.get("wc_margin_min")
+                                if m_min is None:
+                                    m_min = res.worst_case_minus - active_chain.target_min
+                                if wc_min_ok:
+                                    st.markdown(f"**Pire des Cas :** :green[CONFORME] (marge `{m_min:+.4f} mm`)")
+                                else:
+                                    st.markdown(f"**Pire des Cas :** :red[DÉPASSEMENT] (marge `{m_min:+.4f} mm`)")
+                                st.caption(f"Cible Min requise : `{active_chain.target_min:.4f} mm` | $J_{{\\min,\\text{{WC}}}}$ = `{res.worst_case_minus:.4f} mm`")
+                            else:
+                                st.info("Aucune exigence minimale spécifiée.")
+
+                        with col_crit_nom:
+                            st.markdown("###### 2️⃣ Centrage Nominal ($J_{\\text{nom}}$)")
+                            nom_ok = c_info.get("wc_nominal_compliant", True)
+                            dev_nom = c_info.get("nominal_deviation")
+                            dev_str = f"{dev_nom:+.4f} mm" if dev_nom is not None else "N/A"
+                            if nom_ok:
+                                st.markdown(f"**Nominal :** :green[CENTRÉ DANS LA CIBLE] (écart `{dev_str}`)")
+                            else:
+                                st.markdown(f"**Nominal :** :red[HORS INTERVALLE CIBLE] (écart `{dev_str}`)")
+                            st.caption(f"Cote nominale de chaîne : `{res.nominal:.4f} mm`")
+
+                        with col_crit_max:
+                            st.markdown("###### 3️⃣ Borne Maximale ($J_{\\max}$)")
+                            if active_chain.target_max is not None:
+                                wc_max_ok = c_info.get("wc_max_compliant", True)
+                                m_max = c_info.get("wc_margin_max")
+                                if m_max is None:
+                                    m_max = active_chain.target_max - res.worst_case_plus
+                                if wc_max_ok:
+                                    st.markdown(f"**Pire des Cas :** :green[CONFORME] (marge `{m_max:+.4f} mm`)")
+                                else:
+                                    st.markdown(f"**Pire des Cas :** :red[DÉPASSEMENT] (marge `{m_max:+.4f} mm`)")
+                                st.caption(f"Cible Max requise : `{active_chain.target_max:.4f} mm` | $J_{{\\max,\\text{{WC}}}}$ = `{res.worst_case_plus:.4f} mm`")
+                            else:
+                                st.info("Aucune exigence maximale spécifiée.")
+
 
                     # Range chart
                     st.plotly_chart(
