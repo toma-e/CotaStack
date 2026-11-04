@@ -464,7 +464,8 @@ class MultiChainProject:
         description = str(data.get("description", ""))
         proj = cls(name=name, description=description)
 
-        parts_data = data.get("parts") if isinstance(data.get("parts"), dict) else {}
+        raw_parts = data.get("parts")
+        parts_data: dict[str, Any] = raw_parts if isinstance(raw_parts, dict) else {}
         for p_id, p_raw in parts_data.items():
             if not isinstance(p_raw, dict):
                 continue
@@ -479,7 +480,8 @@ class MultiChainProject:
             )
             proj.add_part(part)
 
-        chains_data = data.get("chains") if isinstance(data.get("chains"), dict) else {}
+        raw_chains = data.get("chains")
+        chains_data: dict[str, Any] = raw_chains if isinstance(raw_chains, dict) else {}
         for c_id, c_raw in chains_data.items():
             if not isinstance(c_raw, dict):
                 continue
@@ -490,7 +492,8 @@ class MultiChainProject:
                 target_min=float(c_raw["target_min"]) if c_raw.get("target_min") is not None else None,
                 target_max=float(c_raw["target_max"]) if c_raw.get("target_max") is not None else None,
             )
-            links_data = c_raw.get("links") if isinstance(c_raw.get("links"), list) else []
+            raw_links = c_raw.get("links")
+            links_data: list[Any] = raw_links if isinstance(raw_links, list) else []
             for l_raw in links_data:
                 if not isinstance(l_raw, dict):
                     continue
