@@ -6,6 +6,7 @@ multiple assembly tolerance chains in a complex mechanical system.
 
 from dataclasses import dataclass, field
 import json
+import math
 from typing import Any, Literal
 
 from backend.models import Item, ChainResult
@@ -28,6 +29,8 @@ class CatalogPart:
             raise ValueError("L'identifiant de la pièce (id) ne peut pas être vide.")
         if not self.name or not str(self.name).strip():
             raise ValueError("Le nom de la pièce ne peut pas être vide.")
+        if not (math.isfinite(self.nominal) and math.isfinite(self.es) and math.isfinite(self.ei)):
+            raise ValueError("Les cotes doivent être des valeurs numériques finies.")
         if self.es < self.ei:
             raise ValueError(f"es ({self.es}) doit être >= ei ({self.ei}) pour la pièce {self.id}")
         if self.nominal < 0:
@@ -65,8 +68,11 @@ class ChainLink:
     def __post_init__(self) -> None:
         if self.orientation not in (1, -1):
             raise ValueError(f"L'orientation doit être 1 ou -1, reçu : {self.orientation}")
-        if self.scale_factor <= 0:
-            raise ValueError(f"Le facteur d'échelle doit être > 0, reçu : {self.scale_factor}")
+        if not math.isfinite(self.scale_factor) or self.scale_factor <= 0:
+            raise ValueError(f"Le facteur d'échelle doit être > 0 et fini, reçu : {self.scale_factor}")
+        for val, name in ((self.local_nominal, "local_nominal"), (self.local_es, "local_es"), (self.local_ei, "local_ei")):
+            if val is not None and not math.isfinite(val):
+                raise ValueError(f"Pour un maillon local, {name} doit être une valeur numérique finie.")
         if self.part_id is None and (self.local_nominal is None or self.local_es is None or self.local_ei is None):
             raise ValueError("Un maillon doit soit référencer un part_id du catalogue, soit définir des cotes locales complètes.")
         if self.local_es is not None and self.local_ei is not None and self.local_es < self.local_ei:
@@ -90,6 +96,9 @@ class AssemblyChain:
             raise ValueError("L'identifiant de la chaîne (id) ne peut pas être vide.")
         if not self.name or not str(self.name).strip():
             raise ValueError("Le nom de la chaîne ne peut pas être vide.")
+        for t_val, t_name in ((self.target_min, "target_min"), (self.target_max, "target_max")):
+            if t_val is not None and not math.isfinite(t_val):
+                raise ValueError(f"{t_name} doit être une valeur numérique finie.")
         if self.target_min is not None and self.target_max is not None and self.target_min > self.target_max:
             raise ValueError("target_min ne peut pas être strictement supérieur à target_max.")
 
@@ -415,16 +424,16 @@ class MultiChainProject:
         chains_data = {}
         for c_id, c in self.chains.items():
             links_data = []
-            for l in c.links:
+            for link in c.links:
                 links_data.append({
-                    "orientation": l.orientation,
-                    "part_id": l.part_id,
-                    "custom_name": l.custom_name,
-                    "scale_factor": l.scale_factor,
-                    "local_nominal": l.local_nominal,
-                    "local_es": l.local_es,
-                    "local_ei": l.local_ei,
-                    "local_material": l.local_material,
+                    "orientation": link.orientation,
+                    "part_id": link.part_id,
+                    "custom_name": link.custom_name,
+                    "scale_factor": link.scale_factor,
+                    "local_nominal": link.local_nominal,
+                    "local_es": link.local_es,
+                    "local_ei": link.local_ei,
+                    "local_material": link.local_material,
                 })
             chains_data[c_id] = {
                 "id": c.id,
@@ -455,7 +464,10 @@ class MultiChainProject:
         description = str(data.get("description", ""))
         proj = cls(name=name, description=description)
 
-        for p_id, p_raw in data.get("parts", {}).items():
+        parts_data = data.get("parts") if isinstance(data.get("parts"), dict) else {}
+        for p_id, p_raw in parts_data.items():
+            if not isinstance(p_raw, dict):
+                continue
             part = CatalogPart(
                 id=str(p_raw.get("id", p_id)),
                 name=str(p_raw.get("name", p_id)),
@@ -467,15 +479,21 @@ class MultiChainProject:
             )
             proj.add_part(part)
 
-        for c_id, c_raw in data.get("chains", {}).items():
+        chains_data = data.get("chains") if isinstance(data.get("chains"), dict) else {}
+        for c_id, c_raw in chains_data.items():
+            if not isinstance(c_raw, dict):
+                continue
             chain = AssemblyChain(
                 id=str(c_raw.get("id", c_id)),
                 name=str(c_raw.get("name", c_id)),
                 description=str(c_raw.get("description", "")),
-                target_min=c_raw.get("target_min"),
-                target_max=c_raw.get("target_max"),
+                target_min=float(c_raw["target_min"]) if c_raw.get("target_min") is not None else None,
+                target_max=float(c_raw["target_max"]) if c_raw.get("target_max") is not None else None,
             )
-            for l_raw in c_raw.get("links", []):
+            links_data = c_raw.get("links") if isinstance(c_raw.get("links"), list) else []
+            for l_raw in links_data:
+                if not isinstance(l_raw, dict):
+                    continue
                 chain.links.append(ChainLink(
                     orientation=int(l_raw.get("orientation", 1)),  # type: ignore
                     part_id=l_raw.get("part_id"),
