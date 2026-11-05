@@ -9,12 +9,10 @@ import os
 from datetime import date
 import streamlit as st
 import pandas as pd
-import numpy as np
 import plotly.graph_objects as go
 
 from backend.multi_chain import (
     CatalogPart,
-    ChainLink,
     AssemblyChain,
     MultiChainProject,
 )
@@ -209,7 +207,6 @@ def render_1d_stack_diagram(chain: AssemblyChain, project: MultiChainProject):
 
     # Cumulative positions
     current_x = 0.0
-    y_pos = 0.0
     y_labels = []
 
     pos_color = "#0284c7"   # Blue for positive vectors (+)
@@ -410,12 +407,12 @@ def render_impact_heatmap(project: MultiChainProject, summary):
         row_txt = []
         # Count orientation contributions
         for p_id in parts_ids:
-            matching_links = [l for l in c.links if l.part_id == p_id]
+            matching_links = [lnk for lnk in c.links if lnk.part_id == p_id]
             if not matching_links:
                 row_z.append(0)
                 row_txt.append("")
             else:
-                orient_sum = sum(l.orientation for l in matching_links)
+                orient_sum = sum(lnk.orientation for lnk in matching_links)
                 if orient_sum > 0:
                     row_z.append(1)
                     row_txt.append(f"+{len(matching_links)}" if len(matching_links) > 1 else "+")
@@ -1049,7 +1046,7 @@ def main() -> None:
                             rep_name = link.custom_name or f"Cote locale {idx+1}"
 
                         with st.container(border=True):
-                            c_r1, c_r2, c_r3, c_r4, c_r5, c_r6 = st.columns([1.7, 0.9, 0.9, 1.2, 0.9, 0.5])
+                            c_r1, c_r2, c_r3, c_r4, c_r5, c_r6 = st.columns([1.8, 0.8, 1.0, 1.2, 1.3, 0.7])
                             with c_r1:
                                 st.markdown(f"**#{idx+1} {rep_name}**")
                                 st.markdown(f"{source_badge}", unsafe_allow_html=True)
@@ -1100,7 +1097,7 @@ def main() -> None:
                                         st.rerun()
                             with c_r6:
                                 st.caption("Suppr.")
-                                if st.button("🗑️", key=f"del_link_{active_chain.id}_{idx}", help=f"Retirer le maillon #{idx+1} ({rep_name})"):
+                                if st.button("🗑️", key=f"del_link_{active_chain.id}_{idx}", help=f"Retirer le maillon #{idx+1} ({rep_name})", use_container_width=True):
                                     project.remove_link_from_chain(active_chain.id, idx)
                                     st.toast(f"Maillon #{idx+1} ('{rep_name}') retiré de la chaîne !", icon="🗑️")
                                     st.rerun()
@@ -1208,8 +1205,8 @@ def main() -> None:
                             )
                         else:
                             st.error(
-                                f"❌ **NON CONFORME AU PIRE DES CAS (NO-GO)** : Risque d'interférence ou de jeu excessif. "
-                                f"Ajustez les tolérances du catalogue ou de la chaîne pour retrouver la conformité."
+                                "❌ **NON CONFORME AU PIRE DES CAS (NO-GO)** : Risque d'interférence ou de jeu excessif. "
+                                "Ajustez les tolérances du catalogue ou de la chaîne pour retrouver la conformité."
                             )
 
                         col_crit_min, col_crit_nom, col_crit_max = st.columns(3)
@@ -1304,7 +1301,7 @@ def main() -> None:
         sys_rows = []
         for s in summary.chains_status:
             c = project.get_chain(s.chain_id)
-            c_parts = [l.part_id for l in c.links if l.part_id]
+            c_parts = [lnk.part_id for lnk in c.links if lnk.part_id]
             sys_rows.append({
                 "Chaîne": s.name,
                 "ID": s.chain_id,
