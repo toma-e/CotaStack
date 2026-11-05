@@ -45,6 +45,14 @@ class TestCatalogPart:
         with pytest.raises(ValueError, match="cote nominale doit être >= 0"):
             CatalogPart(id="P-04", name="Pignon", nominal=-10.0, es=0.05, ei=-0.02)
 
+    def test_non_finite_dimensions_raise(self):
+        with pytest.raises(ValueError, match="nombres finis"):
+            CatalogPart(id="P-05", name="Pignon", nominal=float("nan"), es=0.05, ei=-0.02)
+        with pytest.raises(ValueError, match="nombres finis"):
+            CatalogPart(id="P-06", name="Pignon", nominal=10.0, es=float("inf"), ei=-0.02)
+        with pytest.raises(ValueError, match="nombres finis"):
+            CatalogPart(id="P-07", name="Pignon", nominal=10.0, es=0.05, ei=float("-inf"))
+
 
 class TestChainLink:
     def test_valid_part_link(self):
@@ -80,6 +88,16 @@ class TestChainLink:
         with pytest.raises(ValueError, match="local_nominal doit être >= 0"):
             ChainLink(orientation=1, local_nominal=-5.0, local_es=0.1, local_ei=-0.1)
 
+    def test_non_finite_scale_factor_and_local_dimensions_raise(self):
+        with pytest.raises(ValueError, match="Le facteur d'échelle doit être > 0"):
+            ChainLink(orientation=1, part_id="P-01", scale_factor=float("nan"))
+        with pytest.raises(ValueError, match="Le facteur d'échelle doit être > 0"):
+            ChainLink(orientation=1, part_id="P-01", scale_factor=float("inf"))
+        with pytest.raises(ValueError, match="dimensions locales doivent être des nombres finis"):
+            ChainLink(orientation=1, local_nominal=float("nan"), local_es=0.1, local_ei=-0.1)
+        with pytest.raises(ValueError, match="dimensions locales doivent être des nombres finis"):
+            ChainLink(orientation=1, local_nominal=10.0, local_es=float("inf"), local_ei=-0.1)
+
 
 class TestAssemblyChain:
     def test_valid_chain(self):
@@ -103,6 +121,12 @@ class TestAssemblyChain:
     def test_invalid_targets(self):
         with pytest.raises(ValueError, match="target_min ne peut pas être strictement supérieur"):
             AssemblyChain(id="C1", name="Jeu", target_min=0.8, target_max=0.2)
+
+    def test_non_finite_targets_raise(self):
+        with pytest.raises(ValueError, match="cibles dimensionnelles doivent être des nombres finis"):
+            AssemblyChain(id="C1", name="Jeu", target_min=float("nan"))
+        with pytest.raises(ValueError, match="cibles dimensionnelles doivent être des nombres finis"):
+            AssemblyChain(id="C1", name="Jeu", target_max=float("inf"))
 
 
 class TestMultiChainProject:
@@ -400,6 +424,19 @@ class TestMultiChainProject:
             MultiChainProject.from_json("corrupted json string {")
         with pytest.raises(ValueError, match="Données du projet multi-chaînes invalides"):
             MultiChainProject.from_dict("not a dict")  # type: ignore
+        with pytest.raises(ValueError, match="section 'parts' .* dictionnaire"):
+            MultiChainProject.from_dict({"parts": "not a dict"})
+        with pytest.raises(ValueError, match="section 'chains' .* dictionnaire"):
+            MultiChainProject.from_dict({"chains": "not a dict"})
+        with pytest.raises(ValueError, match="Définition de pièce invalide"):
+            MultiChainProject.from_dict({"parts": {"p1": None}})
+        with pytest.raises(ValueError, match="Définition de chaîne invalide"):
+            MultiChainProject.from_dict({"chains": {"c1": None}})
+        with pytest.raises(ValueError, match="liste des maillons"):
+            MultiChainProject.from_dict({"chains": {"c1": {"id": "c1", "name": "c1", "links": "not a list"}}})
+        # Verify non-dict link is skipped safely
+        proj_with_bad_link = MultiChainProject.from_dict({"chains": {"c1": {"id": "c1", "name": "c1", "links": ["bad link", None]}}})
+        assert len(proj_with_bad_link.chains["c1"].links) == 0
 
     def test_part_id_html_sanitization_in_badge(self):
         """Security: Verify part_id with HTML tags is properly escaped against XSS."""
