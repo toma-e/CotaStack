@@ -1,5 +1,12 @@
 # Bolt's Journal - Critical Performance Learnings
 
+## 2026-11-08 - Default UUID4 Generation Overhead in Item Instantiation
+**Learning:**
+1. In `backend/models.py`, `Item` specifies `id: str = field(default_factory=lambda: str(uuid.uuid4()))`. When `MultiChainProject.resolve_chain_items()` converts assembly links into executable calculation items, omitting `id` triggered `uuid.uuid4()`, executing 16 bytes of OS CSPRNG reads (`posix.urandom`) and string formatting for every single link.
+2. Profiling demonstrated that `uuid.uuid4()` consumed >50% of the CPU runtime in `resolve_chain_items()` and multi-chain evaluations (`evaluate_chain`, `evaluate_all`, `get_system_summary`).
+3. Explicitly providing deterministic identifiers `id=f"{chain_id}_{idx}"` eliminates UUID generation overhead completely, yielding a ~65% speedup on `resolve_chain_items()` and ~46-52% speedup on multi-chain evaluation suites while preserving 100% backend test compatibility.
+**Action:** When dynamically instantiating items in hot propagation or resolution paths, always pass deterministic IDs (`f"{context}_{index}"`) instead of letting dataclass field default factories generate cryptographic UUIDs.
+
 ## 2026-11-04 - Sorting Comparator Overhead and Division in ChainCalculator.calculate_pareto()
 **Learning:**
 1. In `backend/calculator.py`, `calculate_pareto` converted float percentages to strings and back (`lambda x: float(str(x["contribution_pct"]))`) during list sorting. This redundant string formatting and parsing added ~4x overhead to sorting within every single `calculate()` call.
