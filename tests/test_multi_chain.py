@@ -45,6 +45,14 @@ class TestCatalogPart:
         with pytest.raises(ValueError, match="cote nominale doit être >= 0"):
             CatalogPart(id="P-04", name="Pignon", nominal=-10.0, es=0.05, ei=-0.02)
 
+    def test_non_finite_dimensions_raise(self):
+        with pytest.raises(ValueError, match="doivent être des valeurs numériques finies"):
+            CatalogPart(id="P-05", name="Pignon", nominal=float("nan"), es=0.05, ei=-0.02)
+        with pytest.raises(ValueError, match="doivent être des valeurs numériques finies"):
+            CatalogPart(id="P-06", name="Pignon", nominal=20.0, es=float("inf"), ei=-0.02)
+        with pytest.raises(ValueError, match="doivent être des valeurs numériques finies"):
+            CatalogPart(id="P-07", name="Pignon", nominal=20.0, es=0.05, ei=float("-inf"))
+
 
 class TestChainLink:
     def test_valid_part_link(self):
@@ -80,6 +88,18 @@ class TestChainLink:
         with pytest.raises(ValueError, match="local_nominal doit être >= 0"):
             ChainLink(orientation=1, local_nominal=-5.0, local_es=0.1, local_ei=-0.1)
 
+    def test_non_finite_scale_and_local_dimensions_raise(self):
+        with pytest.raises(ValueError, match="facteur d'échelle doit être > 0 et fini"):
+            ChainLink(orientation=1, part_id="P-01", scale_factor=float("nan"))
+        with pytest.raises(ValueError, match="facteur d'échelle doit être > 0 et fini"):
+            ChainLink(orientation=1, part_id="P-01", scale_factor=float("inf"))
+        with pytest.raises(ValueError, match="doit être une valeur numérique finie"):
+            ChainLink(orientation=1, local_nominal=float("nan"), local_es=0.1, local_ei=-0.1)
+        with pytest.raises(ValueError, match="doit être une valeur numérique finie"):
+            ChainLink(orientation=1, local_nominal=10.0, local_es=float("inf"), local_ei=-0.1)
+        with pytest.raises(ValueError, match="doit être une valeur numérique finie"):
+            ChainLink(orientation=1, local_nominal=10.0, local_es=0.1, local_ei=float("-inf"))
+
 
 class TestAssemblyChain:
     def test_valid_chain(self):
@@ -103,6 +123,12 @@ class TestAssemblyChain:
     def test_invalid_targets(self):
         with pytest.raises(ValueError, match="target_min ne peut pas être strictement supérieur"):
             AssemblyChain(id="C1", name="Jeu", target_min=0.8, target_max=0.2)
+
+    def test_non_finite_targets_raise(self):
+        with pytest.raises(ValueError, match="doit être une valeur numérique finie"):
+            AssemblyChain(id="C1", name="Jeu", target_min=float("nan"))
+        with pytest.raises(ValueError, match="doit être une valeur numérique finie"):
+            AssemblyChain(id="C1", name="Jeu", target_max=float("inf"))
 
 
 class TestMultiChainProject:
@@ -353,18 +379,18 @@ class TestMultiChainProject:
     def test_move_links(self, project: MultiChainProject):
         chain = project.get_chain("JEU_AXIAL")
         # JEU_AXIAL links initially: CARTER, ARBRE, ROULEMENT, ROULEMENT
-        initial_order = [l.part_id for l in chain.links]
+        initial_order = [link.part_id for link in chain.links]
         assert initial_order == ["CARTER", "ARBRE", "ROULEMENT", "ROULEMENT"]
 
         # Move CARTER (0) down to (1)
         moved = project.move_link_down("JEU_AXIAL", 0)
         assert moved is True
-        assert [l.part_id for l in chain.links] == ["ARBRE", "CARTER", "ROULEMENT", "ROULEMENT"]
+        assert [link.part_id for link in chain.links] == ["ARBRE", "CARTER", "ROULEMENT", "ROULEMENT"]
 
         # Move CARTER back up to (0)
         moved_up = project.move_link_up("JEU_AXIAL", 1)
         assert moved_up is True
-        assert [l.part_id for l in chain.links] == ["CARTER", "ARBRE", "ROULEMENT", "ROULEMENT"]
+        assert [link.part_id for link in chain.links] == ["CARTER", "ARBRE", "ROULEMENT", "ROULEMENT"]
 
         # Boundary checks: cannot move up at 0, cannot move down at len-1
         assert project.move_link_up("JEU_AXIAL", 0) is False
@@ -372,11 +398,11 @@ class TestMultiChainProject:
 
         # Move arbitrary: move CARTER (0) to position 2
         project.move_link("JEU_AXIAL", 0, 2)
-        assert [l.part_id for l in chain.links] == ["ARBRE", "ROULEMENT", "CARTER", "ROULEMENT"]
+        assert [link.part_id for link in chain.links] == ["ARBRE", "ROULEMENT", "CARTER", "ROULEMENT"]
 
         # Move to same index (no-op)
         project.move_link("JEU_AXIAL", 1, 1)
-        assert [l.part_id for l in chain.links] == ["ARBRE", "ROULEMENT", "CARTER", "ROULEMENT"]
+        assert [link.part_id for link in chain.links] == ["ARBRE", "ROULEMENT", "CARTER", "ROULEMENT"]
 
         # Invalid index checks
         with pytest.raises(IndexError, match="old_index invalide"):
@@ -400,6 +426,42 @@ class TestMultiChainProject:
             MultiChainProject.from_json("corrupted json string {")
         with pytest.raises(ValueError, match="Données du projet multi-chaînes invalides"):
             MultiChainProject.from_dict("not a dict")  # type: ignore
+
+    def test_deserialize_null_and_malformed_sections(self):
+        # null parts and chains
+        raw = '{"name": "Projet Test", "parts": null, "chains": null}'
+        proj = MultiChainProject.from_json(raw)
+        assert len(proj.parts) == 0
+        assert len(proj.chains) == 0
+
+        # null inside parts or chains
+        raw_null_items = '{"parts": {"P1": null}, "chains": {"C_null": null, "C1": {"name": "C1", "links": null}}}'
+        proj_nulls = MultiChainProject.from_json(raw_null_items)
+        assert len(proj_nulls.parts) == 0
+        assert len(proj_nulls.chains) == 1
+        assert len(proj_nulls.get_chain("C1").links) == 0
+
+        # null link in links array
+        raw_null_link = '{"chains": {"C1": {"name": "C1", "links": [null]}}}'
+        proj_null_link = MultiChainProject.from_json(raw_null_link)
+        assert len(proj_null_link.get_chain("C1").links) == 0
+
+    def test_deserialize_non_finite_and_invalid_values(self):
+        # NaN in nominal
+        with pytest.raises(ValueError, match="doivent être des valeurs numériques finies"):
+            MultiChainProject.from_json('{"parts": {"P1": {"nominal": "nan", "es": 0.1, "ei": -0.1}}}')
+
+        # Inf in es
+        with pytest.raises(ValueError, match="doivent être des valeurs numériques finies"):
+            MultiChainProject.from_json('{"parts": {"P1": {"nominal": 10.0, "es": "inf", "ei": -0.1}}}')
+
+        # NaN in target_min
+        with pytest.raises(ValueError, match="doit être une valeur numérique finie"):
+            MultiChainProject.from_json('{"chains": {"C1": {"target_min": "nan"}}}')
+
+        # Inf in scale_factor
+        with pytest.raises(ValueError, match="facteur d'échelle doit être > 0 et fini"):
+            MultiChainProject.from_json('{"chains": {"C1": {"links": [{"part_id": "P1", "scale_factor": "inf"}]}}}')
 
     def test_part_id_html_sanitization_in_badge(self):
         """Security: Verify part_id with HTML tags is properly escaped against XSS."""
