@@ -993,20 +993,42 @@ def main() -> None:
                     t_max_disp = f"{active_chain.target_max:.3f} mm" if active_chain.target_max is not None else "Non spécifié"
                     st.markdown(f"**Cibles requises :** `J_min = {t_min_disp}` | `J_max = {t_max_disp}`")
                 with col_cm3:
-                    with st.popover("⚙️ Paramètres", use_container_width=True):
-                        st.markdown("##### ⚙️ Modifier les limites cibles")
-                        ed_c_name = st.text_input("Nom de la chaîne", value=active_chain.name, key="pop_c_name")
-                        ed_c_desc = st.text_input("Description", value=active_chain.description, key="pop_c_desc")
+                    with st.popover("⚙️ Paramètres", use_container_width=True, help="Modifier les paramètres et limites cibles de la chaîne"):
+                        st.markdown(f"##### ⚙️ Paramètres de `{active_chain.id}`")
+                        ed_c_name = st.text_input("Nom de la chaîne", value=active_chain.name, key=f"pop_c_name_{active_chain.id}")
+                        ed_c_desc = st.text_input("Description", value=active_chain.description, key=f"pop_c_desc_{active_chain.id}")
                         col_ed_t1, col_ed_t2 = st.columns(2)
                         with col_ed_t1:
-                            ed_c_tmin = st.number_input("Cible Min (mm)", value=active_chain.target_min if active_chain.target_min is not None else 0.0, step=0.05, format="%.3f", key="pop_c_tmin")
+                            ed_c_tmin = st.number_input(
+                                "Cible Min J_min (mm)",
+                                value=active_chain.target_min if active_chain.target_min is not None else 0.0,
+                                step=0.05,
+                                format="%.3f",
+                                key=f"pop_c_tmin_{active_chain.id}",
+                                help="Jeu minimal fonctionnel acceptable (borne inférieure)",
+                            )
                         with col_ed_t2:
-                            ed_c_tmax = st.number_input("Cible Max (mm)", value=active_chain.target_max if active_chain.target_max is not None else 1.0, step=0.05, format="%.3f", key="pop_c_tmax")
-                        if st.button("💾 Enregistrer les limites", type="primary", use_container_width=True, key="btn_save_c_limits"):
+                            ed_c_tmax = st.number_input(
+                                "Cible Max J_max (mm)",
+                                value=active_chain.target_max if active_chain.target_max is not None else 1.0,
+                                step=0.05,
+                                format="%.3f",
+                                key=f"pop_c_tmax_{active_chain.id}",
+                                help="Jeu maximal fonctionnel acceptable (borne supérieure)",
+                            )
+                        if ed_c_tmin > ed_c_tmax:
+                            st.warning("⚠️ Incohérence : J_min doit être inférieur ou égal à J_max (J_min ≤ J_max).")
+                        if st.button(
+                            "💾 Enregistrer les limites",
+                            type="primary",
+                            use_container_width=True,
+                            key=f"btn_save_c_limits_{active_chain.id}",
+                            disabled=(ed_c_tmin > ed_c_tmax),
+                        ):
                             project.update_chain(
                                 active_chain.id,
-                                name=ed_c_name,
-                                description=ed_c_desc,
+                                name=ed_c_name.strip(),
+                                description=ed_c_desc.strip(),
                                 target_min=ed_c_tmin,
                                 target_max=ed_c_tmax,
                             )
@@ -1015,7 +1037,18 @@ def main() -> None:
 
                         st.divider()
                         st.caption("Zone de suppression :")
-                        if st.button("🗑️ Supprimer cette chaîne", use_container_width=True, key="pop_btn_del_chain"):
+                        confirm_del = st.checkbox(
+                            "Confirmer la suppression",
+                            key=f"chk_del_{active_chain.id}",
+                            help="Cochez pour déverrouiller la suppression définitive de cette chaîne",
+                        )
+                        if st.button(
+                            "🗑️ Supprimer cette chaîne",
+                            use_container_width=True,
+                            key=f"pop_btn_del_chain_{active_chain.id}",
+                            disabled=not confirm_del,
+                            help="Supprime la chaîne active (irréversible)" if confirm_del else "Cochez la case ci-dessus pour activer la suppression",
+                        ):
                             project.remove_chain(active_chain.id)
                             st.warning(f"Chaîne '{active_chain.id}' supprimée.")
                             st.rerun()
